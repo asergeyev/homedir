@@ -77,6 +77,6 @@ function parse_git_branch {
 }
 
 if which git >/dev/null 2>&1; then
-	PS1='\u@:\W$(parse_git_branch)\$ '
+	PS1='\u@$(hostname -s):\W$(parse_git_branch)\$ '
 fi
 
