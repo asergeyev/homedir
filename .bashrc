@@ -2,7 +2,11 @@
 
 # Source global definitions
 if [ -f /etc/bashrc ]; then
-	. /etc/bashrc
+	source /etc/bashrc
+fi
+
+if [ -f /etc/bash.bashrc ]; then
+	source /etc/bash.bashrc
 fi
 
 if [ -f /usr/local/go/misc/bash/go ]; then
