@@ -16,7 +16,8 @@ function myssh {
 }
 
 function mysudo {
-	printf "\033]2;sudo @$HOSTNAME\007"
+	HOST=`hostname --fqd`
+	printf "\033]2;sudo @$HOST\007"
 	env TERM=xterm /usr/bin/sudo $*
 }
 
