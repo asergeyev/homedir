@@ -5,7 +5,10 @@ if [ -f /etc/bashrc ]; then
 	. /etc/bashrc
 fi
 
-source /usr/local/go/misc/bash/go
+if [ -f /usr/local/go/misc/bash/go ]; then
+	source /usr/local/go/misc/bash/go
+fi
+
 
 function myssh {
 	printf "\033]2;ssh @$1\007"
@@ -25,13 +28,17 @@ if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 	export TERM
 fi
 
-if [ "$TERM" == "xterm-256color" ]; then
-	MC_SKIN=my256
-	export MC_SKIN
+if which mc >/dev/null 2>&1; then
+	if [ "$TERM" == "xterm-256color" ]; then
+		MC_SKIN=my256
+		export MC_SKIN
+	fi
 fi
 
+if which vim >/dev/null 2>&1; then
+	export EDITOR="/usr/bin/vim"
+fi
 
-export EDITOR="/usr/bin/vim"
 
 function parse_git_branch {
         git rev-parse --git-dir &> /dev/null
@@ -64,5 +71,7 @@ function parse_git_branch {
         fi
 }
 
-PS1='\u@:\W$(parse_git_branch)\$ '
+if which git >/dev/null 2>&1; then
+	PS1='\u@:\W$(parse_git_branch)\$ '
+fi
 
