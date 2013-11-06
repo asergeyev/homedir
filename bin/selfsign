@@ -8,5 +8,5 @@ if [ -z "$NAME" ]; then
 fi
 
 openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 \
-  -keyout $NAME.key -out $NAME.crt
+  -keyout $NAME.key -out $NAME.crt -subj /CN=$NAME/O=SomeCompany/C=US/ST=SomeState/L=SomeCity
 
