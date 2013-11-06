@@ -14,13 +14,19 @@ if [ -f /usr/local/go/misc/bash/go ]; then
 fi
 
 
+if [ -f .profile ]; then
+	source .profile
+fi
+
+
+
 function myssh {
 	printf "\033]2;ssh @$1\007"
 	env TERM=xterm /usr/bin/ssh $*
 }
 
 function mysudo {
-	HOST=`hostname --fqd`
+	HOST=`hostname --long 2>/dev/null || hostname`
 	printf "\033]2;sudo @$HOST\007"
 	env TERM=xterm /usr/bin/sudo $*
 }
@@ -80,3 +86,4 @@ if which git >/dev/null 2>&1; then
 	PS1='\u@$(hostname -s):\W$(parse_git_branch)\$ '
 fi
 
+export JAVA_HOME=/usr/java/jdk1.7.0_13
