@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+fs.readFile( process.argv[2], function(e, b) {console.log(JSON.stringify(JSON.parse(b), null, 2))} )

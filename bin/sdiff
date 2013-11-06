@@ -1,0 +1,7 @@
+#!/bin/sh
+
+[ -f $1 ] && [ -f $2 ] || exit
+sort < $1  > /tmp/bf1.$$
+sort < $2  > /tmp/bf2.$$
+diff -u /tmp/bf1.$$ /tmp/bf2.$$
+rm -r /tmp/bf1.$$ /tmp/bf2.$$
