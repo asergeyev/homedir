@@ -10,8 +10,8 @@ if [ -f /etc/bash.bashrc ]; then
 fi
 
 
-if [ -f .profile ]; then
-	source .profile
+if [ -f ~/.profile ]; then
+	source ~/.profile
 fi
 
 alias ssh="myssh"
