@@ -46,7 +46,12 @@ export JAVA_HOME=/usr/java/latest
 
 if [ -d /opt/chef ]; then
 	export PATH="/opt/chef/embedded/bin:$PATH"
+	if [ -f ~/.chef/.profile ]; then
+		source ~/.chef/.profile
+	fi
 fi
+
+
 if [ -d ~/.rbenv ]; then 
    export  PATH="$HOME/.rbenv/bin:$PATH"
 	eval "$(rbenv init -)"
