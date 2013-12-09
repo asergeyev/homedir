@@ -17,6 +17,7 @@ fi
 alias ssh="myssh"
 alias scp="myscp"
 alias sudo="mysudo"
+alias ssh-add="mysshadd"
 
 
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then

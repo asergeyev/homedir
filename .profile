@@ -34,6 +34,11 @@ function myssh {
 	env TERM=xterm /usr/bin/ssh $*
 }
 
+function mysshadd {
+	printf "\033]2;[*] ssh-add $*\007"
+	env TERM=xterm /usr/bin/ssh-add $*
+}
+
 function myscp {
 	printf "\033]2;[*] scp $*\007"
 	env TERM=xterm /usr/bin/scp $*
