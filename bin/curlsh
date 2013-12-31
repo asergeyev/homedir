@@ -1,0 +1,25 @@
+#!/bin/sh
+
+## from talking here:
+##  
+
+
+usage(){
+	echo "Usage: curlsh URI SHA1YOUTRUST"
+	exit 2
+}
+
+URI=$1
+if [ -z "$URI" ]; then usage; fi
+
+SHA=$2
+if [ -z "$SHA" ]; then usage; fi
+
+DEST=`mktemp`
+curl -L $URI -o $DEST
+if [ "SHA1(${DEST})= $SHA" = "$(openssl sha1 $DEST)" ]; then
+	(sh $DEST && rm $DEST) || echo "SHA1 correct but script did not exit cleanly"
+else
+	echo "Key is _not_ valid (file kept in $DEST)!"
+fi
+
