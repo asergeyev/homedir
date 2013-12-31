@@ -46,7 +46,7 @@ export JAVA_HOME=/usr/java/latest
 
 
 if [ -d /opt/chef ]; then
-	export PATH="/opt/chef/embedded/bin:$PATH"
+	export PATH="$PATH:/opt/chef/embedded/bin"
 	if [ -f ~/.chef/.profile ]; then
 		source ~/.chef/.profile
 	fi
