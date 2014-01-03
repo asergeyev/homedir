@@ -25,15 +25,23 @@ if [ -f VERSION ]; then
     echo "Will set new version to be $INPUT_STRING"
     echo $INPUT_STRING > VERSION
     echo "Version $INPUT_STRING:" > tmpfile
-    git log --pretty=format:" - %s" "v$BASE_STRING"...HEAD >> tmpfile
-    echo "" >> tmpfile
-    echo "" >> tmpfile
-    cat CHANGES >> tmpfile
-    mv tmpfile CHANGES
-    git add CHANGES VERSION
+    if [ "$(echo $INPUT_STRING | cut -f-2 -d '.')" != "$V_MAJOR.$V_MINOR" ]; then
+      PREVSTART=`git tag | sort --version-sort | grep "$V_MAJOR.$V_MINOR." | head -1`
+      git log --pretty=format:" - %s" $PREVSTART...HEAD >> tmpfile
+      echo "" >> tmpfile
+      echo "" >> tmpfile
+      cat CHANGES >> tmpfile
+      mv tmpfile CHANGES
+      git add CHANGES
+    fi
+    git add VERSION
     git commit -m "Version bump to $INPUT_STRING"
     git tag -a -m "Tagging version $INPUT_STRING" "v$INPUT_STRING"
-    git push origin --tags
+    if git rev-parse --abbrev-ref master@{upstream} >/dev/null 2>&1; then
+      git push --tags
+    else
+      echo "No upstream configured, not pushing tags out"
+    fi
 else
     echo "Could not find a VERSION file"
 fi
