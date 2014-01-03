@@ -1,0 +1,13 @@
+#!/bin/sh
+
+COOKBOOK=$1
+git init $COOKBOOK || exit
+
+cd $COOKBOOK/
+echo -e name "\"$COOKBOOK\"\nversion \"0.1.0\"" > metadata.rb
+mkdir -p recipes
+touch recipes/default.rb
+git add metadata.rb recipes/default.rb
+git status
+
+kitchen init --driver=kitchen-vagrant
