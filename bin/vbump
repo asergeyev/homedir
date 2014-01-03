@@ -38,7 +38,7 @@ if [ -f VERSION ]; then
     git commit -m "Version bump to $INPUT_STRING"
     git tag -a -m "Tagging version $INPUT_STRING" "v$INPUT_STRING"
     if git rev-parse --abbrev-ref master@{upstream} >/dev/null 2>&1; then
-      git push --tags
+      git push --tags && git push
     else
       echo "No upstream configured, not pushing tags out"
     fi
