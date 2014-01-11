@@ -27,7 +27,7 @@ if [ -f VERSION ]; then
     if [ "$(echo $INPUT_STRING | cut -f-2 -d '.')" != "$V_MAJOR.$V_MINOR" ]; then
       echo "Version $INPUT_STRING:" > tmpfile
       PREVSTART=`git tag | sort --version-sort | grep "$V_MAJOR.$V_MINOR." | head -1`
-      git log --pretty=format:" - %s" $PREVSTART...HEAD 2>&1 | grep -v "Version bump" >> tmpfile
+      git log --pretty=format:" - %s" $PREVSTART...HEAD 2>&1 | grep -v "Version bump" | grep -v "CHANGES" >> tmpfile
       echo "" >> tmpfile
       echo "" >> tmpfile
       cat CHANGES >> tmpfile
