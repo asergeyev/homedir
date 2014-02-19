@@ -32,6 +32,7 @@ if [ -f VERSION ]; then
       echo "" >> tmpfile
       cat CHANGES >> tmpfile
       mv tmpfile CHANGES
+      mcedit CHANGES || (git checkout -- CHANGES && exit 2)
       git add CHANGES
     fi
     git add VERSION
