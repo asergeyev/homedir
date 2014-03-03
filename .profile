@@ -1,9 +1,9 @@
 function parse_git_branch {
-        git rev-parse --git-dir &> /dev/null
         git_status="$(git status 2> /dev/null)"
-        branch_pattern="^# On branch ([^${IFS}]*)"
-        remote_pattern="# Your branch is (.*) of"
-        diverge_pattern="# Your branch and (.*) have diverged"
+        branch_pattern="^On branch ([^${IFS}]*)"
+        remote_pattern="Your branch is (.*) of"
+        diverge_pattern="Your branch and (.*) have diverged"
+
         if [[ ! ${git_status} =~ "working directory clean" ]]; then
                 git_status="$(git status . 2> /dev/null)"
                 if [[ ! ${git_status} =~ "working directory clean" ]]; then
@@ -26,6 +26,8 @@ function parse_git_branch {
         if [[ ${git_status} =~ ${branch_pattern} ]]; then
                 branch=${BASH_REMATCH[1]}
                 echo " (${branch})${remote}${state}"
+        else
+               echo " ()"
         fi
 }
 
