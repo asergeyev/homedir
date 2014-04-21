@@ -22,7 +22,7 @@ No description...
 
 None.
 
-## $cookbook::default
+## $COOKBOOK::default
 
 Default recipe.
 
