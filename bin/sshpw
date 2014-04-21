@@ -1,2 +1,3 @@
-#!/bin/bash
-exec ssh -o PreferredAuthentications=keyboard-interactive -o PubkeyAuthentication=no $*
+#!/bin/bash -x
+
+exec /usr/bin/ssh -o PreferredAuthentications=keyboard-interactive -o PubkeyAuthentication=no $*
