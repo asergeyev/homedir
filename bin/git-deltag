@@ -1,3 +1,6 @@
 #!/bin/sh
 
-git tag -d $1 && git push origin :refs/tags/$1
+git tag -d $1
+for origin in $(git remote | xargs); do
+    git push $origin :refs/tags/$1
+done
