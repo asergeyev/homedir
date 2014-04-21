@@ -1,6 +1,6 @@
 #!/bin/sh
 
-
+# Make self-signed cert
 NAME=$1
 if [ -z "$NAME" ]; then
 	echo "Usage: selfsign NAME"

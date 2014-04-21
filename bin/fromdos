@@ -1,3 +1,5 @@
 #!/bin/sh
 
+# OLD WORKHORSE TO convert line ends (can use sed now :) ...)
+
 test -f "$1" && tr -d "\r" < "$1" > "$1.new" && mv "$1.new" "$1"

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## recoding my camcorder videos
+## converting my camcorder videos
 [ -z $1 ] && exit
 [ -f $1 ] || exit
 IN=$1

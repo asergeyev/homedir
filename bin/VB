@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Bump version in GITROOT/VERSION file and update CHANGES if there
+# is more than PATHVERSION updated
+
 WORKDIR=$(git rev-parse --show-toplevel 2> /dev/null)
 if [[ -z $WORKDIR ]]; then
     echo "this version bump only works in git worktree"

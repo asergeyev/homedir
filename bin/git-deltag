@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# KILL particular tag locally and on all remote origins
+
 git tag -d $1
 for origin in $(git remote | xargs); do
     git push $origin :refs/tags/$1

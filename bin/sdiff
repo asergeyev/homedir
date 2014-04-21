@@ -1,5 +1,6 @@
 #!/bin/sh
 
+## Diff between documents that have sortable lines
 [ -f $1 ] && [ -f $2 ] || exit
 sort < $1  > /tmp/bf1.$$
 sort < $2  > /tmp/bf2.$$
