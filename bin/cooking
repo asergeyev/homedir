@@ -39,6 +39,10 @@ long_description IO.read(File.join(File.dirname(__FILE__), "README.md"))
 version          IO.read(File.join(File.dirname(__FILE__), "VERSION")) rescue "crash chefrun"
 EOF
 
+cat >Berksfile <<EOF
+site :opscode
+metadata
+EOF
 
 mkdir -p recipes
 touch recipes/default.rb
