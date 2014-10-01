@@ -48,8 +48,9 @@ mkdir -p recipes
 touch recipes/default.rb
 
 kitchen init --driver=kitchen-vagrant >/dev/null 2>&1
+echo "Berksfile.lock" >> .gitignore
 
-git add VERSION README.md metadata.rb recipes/default.rb .gitignore .kitchen.yml
+git add VERSION README.md metadata.rb recipes/default.rb .gitignore .kitchen.yml Berksfile
 
 echo "Cookbook is ready, now examine git status before your first commit!"
 echo "  \$ cd $COOKBOOK"

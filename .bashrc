@@ -19,7 +19,6 @@ alias scp="myscp"
 alias sudo="mysudo"
 alias ssh-add="mysshadd"
 
-
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 	TERM=xterm-256color
 	export TERM
@@ -52,6 +51,9 @@ if [ -d /opt/chef ]; then
 	fi
 fi
 
+if [ -d /home/asergeyev/.linuxbrew/bin ]; then
+    export PATH="/home/asergeyev/.linuxbrew/bin:$PATH"
+fi
 
 if [ -d ~/.rbenv ]; then 
    export  PATH="$HOME/.rbenv/bin:$PATH"
@@ -64,10 +66,6 @@ fi
 
 if which firefox >/dev/null 2>&1; then
 	export MOZ_TMPDIR=$HOME/Downloads/tmp
-fi
-
-if [ -f /usr/local/go/misc/bash/go ]; then
-	source /usr/local/go/misc/bash/go
 fi
 
 
