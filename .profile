@@ -7,27 +7,26 @@ function parse_git_branch {
         if [[ ! ${git_status} =~ "working directory clean" ]]; then
                 git_status="$(git status . 2> /dev/null)"
                 if [[ ! ${git_status} =~ "working directory clean" ]]; then
-                    state="⚡⚡"
+                    state="∦ "
                 else
-                    state="⚡"
+                    state="⇔"
                 fi
         fi
         # add an else if or two here if you want to get more specific
-        if [[ ${git_status} =~ ${remote_pattern} ]]; then
+        if [[ ${git_status} =~ ${diverge_pattern} ]]; then
+                remote="↕"
+        elif [[ ${git_status} =~ ${remote_pattern} ]]; then
                 if [[ ${BASH_REMATCH[1]} == "ahead" ]]; then
                         remote="↑"
                 else
                         remote="↓"
                 fi
         fi
-        if [[ ${git_status} =~ ${diverge_pattern} ]]; then
-                remote="↕"
-        fi
         if [[ ${git_status} =~ ${branch_pattern} ]]; then
                 branch=${BASH_REMATCH[1]}
-                echo " (${branch})${remote}${state}"
+                echo " :${branch} ${remote}${state}"
         else
-               echo " ()"
+                echo ""
         fi
 }
 
