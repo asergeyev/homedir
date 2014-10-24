@@ -51,10 +51,6 @@ if [ -d /opt/chef ]; then
 	fi
 fi
 
-if [ -d /home/asergeyev/.linuxbrew/bin ]; then
-    export PATH="/home/asergeyev/.linuxbrew/bin:$PATH"
-fi
-
 if [ -d ~/.rbenv ]; then 
    export  PATH="$HOME/.rbenv/bin:$PATH"
 	eval "$(rbenv init -)"
@@ -63,11 +59,6 @@ fi
 if [ -d $HOME/.local/bin ]; then
 	export PATH=$HOME/.local/bin:$PATH
 fi
-
-if which firefox >/dev/null 2>&1; then
-	export MOZ_TMPDIR=$HOME/Downloads/tmp
-fi
-
 
 if [ -d /usr/local/go ]; then
 	export PATH=$PATH:/usr/local/go/bin
