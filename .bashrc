@@ -18,6 +18,7 @@ alias ssh="myssh"
 alias scp="myscp"
 alias sudo="mysudo"
 alias ssh-add="mysshadd"
+alias lc="wc -l"
 
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 	TERM=xterm-256color
