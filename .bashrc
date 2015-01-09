@@ -18,19 +18,24 @@ alias ssh="myssh"
 alias scp="myscp"
 alias sudo="mysudo"
 alias ssh-add="mysshadd"
+
+alias more='less'
 alias lc="wc -l"
+alias f="cut -f "
+alias sort="/bin/sort --parallel 5 -S 3G"
+alias tawk="tab-delimited-pass-to-awk"
 
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 	TERM=xterm-256color
 	export TERM
 fi
 
-if which mc >/dev/null 2>&1; then
-	if [ "$TERM" == "xterm-256color" ]; then
-		MC_SKIN=my256
-		export MC_SKIN
-	fi
-fi
+#if which mc >/dev/null 2>&1; then
+#	if [ "$TERM" == "xterm-256color" ]; then
+#		MC_SKIN=my256
+#		export MC_SKIN
+#	fi
+#fi
 
 if which vim >/dev/null 2>&1; then
 	export EDITOR="/usr/bin/vim"
@@ -64,6 +69,6 @@ fi
 if [ -d /usr/local/go ]; then
 	export PATH=$PATH:/usr/local/go/bin
 	export GOROOT=/usr/local/go
-	export GOPATH=$HOME/go:/u/2014/go
+	export GOPATH=$HOME/go
 fi
 

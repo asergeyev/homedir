@@ -5,5 +5,14 @@
 [ -f $1 ] || exit
 IN=$1
 OUT=`perl -e '\$_=shift; chomp; s/\\..*$/.avi/; print lc \$_' $(basename $IN)`;
-OPT="vbitrate=14000000"
-mencoder $IN -demuxer lavf -lavdopts threads=3:fast:skiploopfilter=all -ovc lavc -vf pp=fd,scale=960:540,hue=0:1.5 -lavcopts vcodec=msmpeg4v2:$OPT -oac mp3lame -lameopts preset=64 -o /mnt/Turf/$OUT
+
+ffmpeg -i $IN -acodec libmp3lame -ab 192k \
+              -s 960x540 \
+              -qscale 8 \
+              -vf "unsharp=7:7:2.5,mp=eq2=1:1.2:.1:1.25:1:1:1" \
+              -y /mnt/Turf/$OUT
+
+#ffmpeg -i $IN -t 60 -r 59.94 -s 960x540 -qscale 8 \
+#      -vf "unsharp=7:7:2.5,mp=eq2=1:1.2:.1:1.25:1:1:1" \
+#      -acodec libmp3lame -b:a 128k -vcodec libxvid -flags +aic+mv4 \
+#      -y /mnt/Turf/$OUT

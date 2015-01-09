@@ -51,5 +51,8 @@ function mysudo {
 	env TERM=xterm /usr/bin/sudo $*
 }
 
-
+function tab-delimited-pass-to-awk {
+    AS=$(echo $* | sed 's/[^ ][^ ]*/"&"/g' | sed -r 's/"(\$[^"]*)"/\1/g'  | tr " " "," )
+    awk "OFS=\"\\t\"{print $AS}"
+}
 
