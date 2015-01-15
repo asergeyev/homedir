@@ -53,6 +53,6 @@ function mysudo {
 
 function tab-delimited-pass-to-awk {
     AS=$(echo $* | sed 's/[^ ][^ ]*/"&"/g' | sed -r 's/"(\$[^"]*)"/\1/g'  | tr " " "," )
-    awk "OFS=\"\\t\"{print $AS}"
+    awk -F "\t" "OFS=\"\\t\"{print $AS}"
 }
 
