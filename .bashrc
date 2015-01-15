@@ -22,7 +22,12 @@ alias ssh-add="mysshadd"
 alias more='less'
 alias lc="wc -l"
 alias f="cut -f "
-alias sort="/bin/sort --parallel 5 -S 3G"
+if /bin/sort --help | grep -q parallel; then
+    alias sort="/bin/sort --parallel 5 -S 3G"
+else
+    alias sort="/bin/sort -S 3G"
+fi
+
 alias tawk="tab-delimited-pass-to-awk"
 
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
