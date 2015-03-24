@@ -18,41 +18,39 @@ alias ssh="myssh"
 alias scp="myscp"
 alias sudo="mysudo"
 alias ssh-add="mysshadd"
-
+alias grep="grep --line-buffered"
 alias more='less'
 alias lc="wc -l"
 alias f="cut -f "
+
+
 if /bin/sort --help | grep -q parallel; then
     alias sort="/bin/sort --parallel 5 -S 3G"
 else
     alias sort="/bin/sort -S 3G"
 fi
 
-alias tawk="tab-delimited-pass-to-awk"
-
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 	TERM=xterm-256color
 	export TERM
 fi
 
-#if which mc >/dev/null 2>&1; then
-#	if [ "$TERM" == "xterm-256color" ]; then
-#		MC_SKIN=my256
-#		export MC_SKIN
-#	fi
-#fi
+if which mc >/dev/null 2>&1; then
+	if [ "$TERM" == "xterm-256color" ] && [ -f /usr/share/mc/skins/xoria256.ini ]; then
+		MC_SKIN=xoria256
+		export MC_SKIN
+	fi
+fi
 
 if which vim >/dev/null 2>&1; then
 	export EDITOR="/usr/bin/vim"
 fi
 
-if which git >/dev/null 2>&1; then
-	PS1='\u@$(hostname -s):\W$(parse_git_branch)\$ '
+if `java -version 2>&1 | grep -q OpenJDK`; then
+	export JAVA_HOME=/usr/lib/jvm/jre
+else
+	export JAVA_HOME=/usr/java/latest
 fi
-
-
-
-export JAVA_HOME=/usr/java/latest
 
 
 if [ -d /opt/chef ]; then
@@ -71,9 +69,11 @@ if [ -d $HOME/.local/bin ]; then
 	export PATH=$HOME/.local/bin:$PATH
 fi
 
-if [ -d /usr/local/go ]; then
+if [ -d /usr/local/go/bin ]; then
 	export PATH=$PATH:/usr/local/go/bin
 	export GOROOT=/usr/local/go
 	export GOPATH=$HOME/go
+	export GOBOOTSTRAP=$GOROOT
+	alias
 fi
 

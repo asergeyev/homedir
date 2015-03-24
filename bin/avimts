@@ -8,11 +8,7 @@ OUT=`perl -e '\$_=shift; chomp; s/\\..*$/.avi/; print lc \$_' $(basename $IN)`;
 
 ffmpeg -i $IN -acodec libmp3lame -ab 192k \
               -s 960x540 \
-              -q:v 8 \
-              -vf "unsharp=7:7:2.5,mp=eq2=1:1.2:.1:1.25:1:1:1" \
+              -q:v 10 \
               -y /mnt/Turf/$OUT
 
-#ffmpeg -i $IN -t 60 -r 59.94 -s 960x540 -qscale 8 \
-#      -vf "unsharp=7:7:2.5,mp=eq2=1:1.2:.1:1.25:1:1:1" \
-#      -acodec libmp3lame -b:a 128k -vcodec libxvid -flags +aic+mv4 \
-#      -y /mnt/Turf/$OUT
+touch -r $IN $OUT

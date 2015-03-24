@@ -1,33 +1,20 @@
-function parse_git_branch {
-        git_status="$(git status 2> /dev/null)"
-        branch_pattern="^On branch ([^${IFS}]*)"
-        remote_pattern="Your branch is (.*) of"
-        diverge_pattern="Your branch and (.*) have diverged"
+function lcut {
+	f=$1
+	FN=$2
+	if `echo "$f" | grep -q ':'`; then
+		A0=$(echo "$f"| cut -d: -f1)
+		A1=$(echo "$f"| cut -d: -f2)
 
-        if [[ ! ${git_status} =~ "working directory clean" ]]; then
-                git_status="$(git status . 2> /dev/null)"
-                if [[ ! ${git_status} =~ "working directory clean" ]]; then
-                    state="∦ "
-                else
-                    state="⇔"
-                fi
-        fi
-        # add an else if or two here if you want to get more specific
-        if [[ ${git_status} =~ ${diverge_pattern} ]]; then
-                remote="↕"
-        elif [[ ${git_status} =~ ${remote_pattern} ]]; then
-                if [[ ${BASH_REMATCH[1]} == "ahead" ]]; then
-                        remote="↑"
-                else
-                        remote="↓"
-                fi
-        fi
-        if [[ ${git_status} =~ ${branch_pattern} ]]; then
-                branch=${BASH_REMATCH[1]}
-                echo " :${branch} ${remote}${state}"
-        else
-                echo ""
-        fi
+		A0=${A0:-1}
+		if [ -z "$A1" ]; then
+			tail -n +$A0 $FN
+		else
+			tail -n +$A0 $FN | head -$(($A1 - $A0 + 1))
+		fi
+	else
+		echo first argument should be "n:m", got \"$f\" >/dev/stderr
+		return 1
+	fi
 }
 
 function myssh {
@@ -51,7 +38,7 @@ function mysudo {
 	env TERM=xterm /usr/bin/sudo $*
 }
 
-function tab-delimited-pass-to-awk {
+function tawk {
     AS=$(echo $* | sed 's/[^ ][^ ]*/"&"/g' | sed -r 's/"(\$[^"]*)"/\1/g'  | tr " " "," )
     awk -F "\t" "OFS=\"\\t\"{print $AS}"
 }
