@@ -74,6 +74,6 @@ if [ -d /usr/local/go/bin ]; then
 	export GOROOT=/usr/local/go
 	export GOPATH=$HOME/go
 	export GOBOOTSTRAP=$GOROOT
-	alias
+	alias gorun="go run"
 fi
 

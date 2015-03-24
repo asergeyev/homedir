@@ -38,8 +38,3 @@ function mysudo {
 	env TERM=xterm /usr/bin/sudo $*
 }
 
-function tawk {
-    AS=$(echo $* | sed 's/[^ ][^ ]*/"&"/g' | sed -r 's/"(\$[^"]*)"/\1/g'  | tr " " "," )
-    awk -F "\t" "OFS=\"\\t\"{print $AS}"
-}
-
