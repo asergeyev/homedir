@@ -21,7 +21,10 @@ alias ssh-add="mysshadd"
 alias grep="grep --line-buffered"
 alias more='less'
 alias lc="wc -l"
+alias zlc="zcat | wc -l"
 alias f="cut -f "
+alias xargs-c="xargs -n1 -I% bash -c"
+alias ff="find . -type f"
 
 
 if /bin/sort --help | grep -q parallel; then
