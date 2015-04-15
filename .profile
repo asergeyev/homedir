@@ -38,3 +38,6 @@ function mysudo {
 	env TERM=xterm /usr/bin/sudo $*
 }
 
+function fcl {
+	head -1 $1 | tr '\t' '\n' | cat -n
+}
