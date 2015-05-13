@@ -64,11 +64,21 @@ if [ -d /opt/chef ]; then
 fi
 
 if [ -d ~/.rbenv ]; then 
-   export  PATH="$HOME/.rbenv/bin:$PATH"
+	export  PATH="$HOME/.rbenv/bin:$PATH"
 	eval "$(rbenv init -)"
 fi
 
-if [ -d $HOME/.local/bin ]; then
+if [ -d ~/.python ]; then 
+	VIRTUAL_ENV_DISABLE_PROMPT=1
+	. ~/.python/bin/activate
+fi
+
+if [ -d ~/.perl5 ]; then
+	[ $SHLVL -eq 1 ] && eval "$(perl -I~/perl5/lib/perl5 -Mlocal::lib)"
+fi
+
+
+if [ -d ~/.local/bin ]; then
 	export PATH=$HOME/.local/bin:$PATH
 fi
 
@@ -77,6 +87,9 @@ if [ -d /usr/local/go/bin ]; then
 	export GOROOT=/usr/local/go
 	export GOPATH=$HOME/go
 	export GOBOOTSTRAP=$GOROOT
+	alias gorun="go run"
+elif [ -f /usr/bin/go ]; then
+	export GOPATH=$HOME/go
 	alias gorun="go run"
 fi
 
