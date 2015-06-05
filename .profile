@@ -41,3 +41,10 @@ function mysudo {
 function fcl {
 	head -1 $1 | tr '\t' '\n' | cat -n
 }
+
+function mt {
+	S=$(date +%s)
+	X=$(($S / 3600))
+	D=$(($X / 24))
+	echo "$(($D/28))/$(($D % 28))/$(($X % 24))"
+}
