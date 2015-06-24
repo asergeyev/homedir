@@ -26,7 +26,6 @@ alias f="cut -f "
 alias xargs-c="xargs -n1 -I% bash -c"
 alias ff="find . -type f"
 
-
 if /bin/sort --help | grep -q parallel; then
     alias sort="/bin/sort --parallel 5 -S 3G"
 else
@@ -83,10 +82,9 @@ if [ -d ~/.local/bin ]; then
 fi
 
 if [ -d /usr/local/go/bin ]; then
+	export GOBOOTSTRAP=/usr/local/go
 	export PATH=$PATH:/usr/local/go/bin
-	export GOROOT=/usr/local/go
 	export GOPATH=$HOME/go
-	export GOBOOTSTRAP=$GOROOT
 	alias gorun="go run"
 elif [ -f /usr/bin/go ]; then
 	export GOPATH=$HOME/go
