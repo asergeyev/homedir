@@ -48,3 +48,9 @@ function mt {
 	D=$(($X / 24))
 	echo "$(($D/28))/$(($D % 28))/$(($X % 24))"
 }
+
+
+function c {
+	A=$*
+	echo $(($A))
+}
