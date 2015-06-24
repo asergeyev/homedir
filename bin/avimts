@@ -11,4 +11,4 @@ ffmpeg -i $IN -acodec libmp3lame -ab 192k \
               -q:v 10 \
               -y /mnt/Turf/$OUT
 
-touch -r $IN $OUT
+touch -r $IN /mnt/Turf/$OUT
