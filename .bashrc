@@ -63,8 +63,8 @@ if [ -d /opt/chef ]; then
 fi
 
 if [ -d ~/.rbenv ]; then 
-	export  PATH="$HOME/.rbenv/bin:$PATH"
-	eval "$(rbenv init -)"
+	eval "$(~/.rbenv/bin/rbenv init -)"
+	export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
 fi
 
 if [ -d ~/.python ]; then 
@@ -72,8 +72,8 @@ if [ -d ~/.python ]; then
 	. ~/.python/bin/activate
 fi
 
-if [ -d ~/.perl5 ]; then
-	[ $SHLVL -eq 1 ] && eval "$(perl -I~/perl5/lib/perl5 -Mlocal::lib)"
+if [ -d ~/perl5 ]; then
+	eval "$(perl -I ~/perl5/lib/perl5 -Mlocal::lib)"
 fi
 
 
@@ -81,13 +81,13 @@ if [ -d ~/.local/bin ]; then
 	export PATH=$HOME/.local/bin:$PATH
 fi
 
-if [ -d /usr/local/go/bin ]; then
-	export GOBOOTSTRAP=/usr/local/go
-	export PATH=$PATH:/usr/local/go/bin
+if [ -x /usr/local/go/bin/go ]; then
 	export GOPATH=$HOME/go
-	alias gorun="go run"
-elif [ -f /usr/bin/go ]; then
+	export GOROOT=/usr/local/go
+	export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+elif [ -x /usr/lib/golang/bin/go ]; then
 	export GOPATH=$HOME/go
-	alias gorun="go run"
+	export GOROOT=/usr/lib/golang
+	export PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
 fi
 

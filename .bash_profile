@@ -7,5 +7,3 @@ if [ -f ~/.bashlocal ]; then
 fi
 
 
-
-

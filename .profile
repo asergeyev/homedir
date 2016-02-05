@@ -50,7 +50,9 @@ function mt {
 }
 
 
-function c {
-	A=$*
-	echo $(($A))
+function calc {
+	A="warn $*, \"\\n\""
+	perl -e "$A"
 }
+
+
