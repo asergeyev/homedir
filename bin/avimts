@@ -6,9 +6,16 @@
 IN=$1
 OUT=`perl -e '\$_=shift; chomp; s/\\..*$/.avi/; print lc \$_' $(basename $IN)`;
 
+#gamma:contrast:brightness:saturation:rg:gg:bg:weight
+
 ffmpeg -i $IN -acodec libmp3lame -ab 192k \
-              -s 960x540 \
+              -s 1280x720 \
+              -codec:v libx264rgb \
               -q:v 10 \
+              -r 24 \
               -y /mnt/Turf/$OUT
+
+
+#              -vf mp=eq2=1.2:0.9:-0.1:1.44 \
 
 touch -r $IN /mnt/Turf/$OUT
