@@ -1,0 +1,12 @@
+#!/bin/sh
+
+cd $(dirname $0)
+pwd=$(pwd)
+
+for x in `find . -mindepth 1 -maxdepth 1 -type d`; do
+    cd $pwd/$x
+    s=$(git status -s)
+    if [ -n "$s" ]; then
+        echo $x: $s
+    fi
+done
