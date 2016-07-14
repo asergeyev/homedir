@@ -48,10 +48,12 @@ if which vim >/dev/null 2>&1; then
 	export EDITOR="/usr/bin/vim"
 fi
 
-if `java -version 2>&1 | grep -q OpenJDK`; then
-	export JAVA_HOME=/usr/lib/jvm/jre
-else
-	export JAVA_HOME=/usr/java/latest
+if which java >/dev/null 2>&1; then
+	if `java -version 2>&1 | grep -q OpenJDK`; then
+		export JAVA_HOME=/usr/lib/jvm/jre
+	else
+		export JAVA_HOME=/usr/java/latest
+	fi
 fi
 
 
