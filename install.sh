@@ -14,7 +14,6 @@ ln -s $SRC/.bashrc .
 ln -s $SRC/.profile .
 ln -s $SRC/.tmux.conf .
 
-mkdir -p .local
-cd .local
-rm -f bin || exit
-ln -s $SRC/bin .
+mkdir -p .local/bin
+cd .local/bin
+ls $SRC/bin | xargs -I% -n1 ln -fs $SRC/bin/% .
