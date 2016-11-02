@@ -10,8 +10,8 @@ if [ -f /etc/bash.bashrc ]; then
 fi
 
 
-if [ -f ~/.profile ]; then
-	source ~/.profile
+if [ -f $HOME/.profile ]; then
+	source $HOME/.profile
 fi
 
 alias ssh="myssh"
@@ -26,10 +26,10 @@ alias f="cut -f "
 alias xargs-c="xargs -n1 -I% bash -c"
 alias ff="find . -type f"
 
-if /bin/sort --help | grep -q parallel; then
-    alias sort="/bin/sort --parallel 5 -S 3G"
+if sort --help | grep -q parallel; then
+    alias sort="sort --parallel 5 -S 3G"
 else
-    alias sort="/bin/sort -S 3G"
+    alias sort="sort -S 3G"
 fi
 
 if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
@@ -38,7 +38,7 @@ if [ -n "$DISPLAY" -a "$TERM" == "xterm" ]; then
 fi
 
 if which mc >/dev/null 2>&1; then
-	if [ "$TERM" == "xterm-256color" ] && [ -f /usr/share/mc/skins/xoria256.ini ]; then
+	if [ "$TERM" == "xterm-256color" ]; then
 		MC_SKIN=xoria256
 		export MC_SKIN
 	fi
@@ -59,37 +59,40 @@ fi
 
 if [ -d /opt/chef ]; then
 	export PATH="$PATH:/opt/chef/embedded/bin"
-	if [ -f ~/.chef/.profile ]; then
-		source ~/.chef/.profile
+	if [ -f $HOME/.chef/.profile ]; then
+		source $HOME/.chef/.profile
 	fi
 fi
 
-if [ -d ~/.rbenv ]; then 
-	eval "$(~/.rbenv/bin/rbenv init -)"
+if [ -d $HOME/.rbenv ]; then 
+	eval "$($HOME/.rbenv/bin/rbenv init -)"
 	export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
 fi
 
-if [ -d ~/.python ]; then 
+if [ -d $HOME/.python ]; then 
 	VIRTUAL_ENV_DISABLE_PROMPT=1
-	. ~/.python/bin/activate
+	. $HOME/.python/bin/activate
+	if [ -f /usr/local/bin/virtualenvwrapper.sh ]; then
+		. /usr/local/bin/virtualenvwrapper.sh
+	fi
 fi
 
-if [ -d ~/perl5 ]; then
-	eval "$(perl -I ~/perl5/lib/perl5 -Mlocal::lib)"
+if [ -d $HOME/perl5 ]; then
+	eval "$(perl -I $HOME/perl5/lib/perl5 -Mlocal::lib)"
 fi
 
-
-if [ -d ~/.local/bin ]; then
+if [ -d $HOME/.local/bin ]; then
 	export PATH=$HOME/.local/bin:$PATH
 fi
 
 if [ -x /usr/local/go/bin/go ]; then
 	export GOPATH=$HOME/go
-	export GOROOT=/usr/local/go
 	export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+elif [ -x /usr/local/bin/go ]; then
+	export GOPATH=$HOME/go
+	export PATH=$PATH:$GOPATH/bin
 elif [ -x /usr/lib/golang/bin/go ]; then
 	export GOPATH=$HOME/go
-	export GOROOT=/usr/lib/golang
 	export PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
 fi
 
