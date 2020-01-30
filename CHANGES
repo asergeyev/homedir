@@ -1,3 +1,12 @@
+Version 1.2.1:
+* trying out zsh with old bash files shuffled
+* adding some files from .config
+
+Version 1.1.5:
+* added .bashlocal
+* added tmux config
+
 Version 1.1.0:
+* base idea of layout
 
 

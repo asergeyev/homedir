@@ -1,0 +1,7 @@
+# global exlude list
+
+*.old
+~*
+
+*.diff
+.DS_Store

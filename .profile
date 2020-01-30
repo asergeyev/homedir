@@ -1,4 +1,4 @@
-function lcut {
+.profilefunction lcut {
 	f=$1
 	FN=$2
 	if `echo "$f" | grep -q ':'`; then
@@ -51,8 +51,20 @@ function mt {
 
 
 function calc {
-	A="warn $*, \"\\n\""
-	perl -e "$A"
+	A="say ($*)"
+	echo "$A" | perl -Mv5.14
+
+}
+
+
+function branch {
+	A=$1
+	git fetch 
+	if [ -z "$A" ]; then
+		git branch --list
+	else
+		git checkout -q $A || git checkout -b $A origin/master
+	fi
 }
 
 

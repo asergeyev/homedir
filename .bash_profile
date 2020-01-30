@@ -1,9 +1,17 @@
+# Source global definitions
+if [[ -f /etc/bashrc ]]; then
+	source /etc/bashrc
+fi
+
+if [[ -f /etc/bash.bashrc ]]; then
+	source /etc/bash.bashrc
+fi
+
 if [ -f ~/.bashrc ]; then
-  . ~/.bashrc
+	source ~/.bashrc
 fi
 
-if [ -f ~/.bashlocal ]; then
-  . ~/.bashlocal
+if [[ -f ~/.bashlocal ]]; then
+	source ~/.bashlocal
 fi
-
 
