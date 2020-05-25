@@ -15,3 +15,4 @@ if [[ -f ~/.bashlocal ]]; then
 	source ~/.bashlocal
 fi
 
+PS1='[\u@\h \W]\$ '

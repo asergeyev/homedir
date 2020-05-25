@@ -1,4 +1,5 @@
-.profilefunction lcut {
+# show lines from M to N when called as "M:N filename"
+function lcut {
 	f=$1
 	FN=$2
 	if `echo "$f" | grep -q ':'`; then
@@ -17,54 +18,16 @@
 	fi
 }
 
-function myssh {
-	printf "\033]2;[*] ssh $*\007"
-	env TERM=xterm /usr/bin/ssh $*
-}
 
-function mysshadd {
-	printf "\033]2;[*] ssh-add $*\007"
-	env TERM=xterm /usr/bin/ssh-add $*
-}
-
-function myscp {
-	printf "\033]2;[*] scp $*\007"
-	env TERM=xterm /usr/bin/scp $*
-}
-
-function mysudo {
-	HOST=`hostname --long 2>/dev/null || hostname`
-	printf "\033]2;[*] sudo $HOST\007"
-	env TERM=xterm /usr/bin/sudo $*
-}
-
+# get list of fields from tsv header (line per column)
 function fcl {
 	head -1 $1 | tr '\t' '\n' | cat -n
-}
-
-function mt {
-	S=$(date +%s)
-	X=$(($S / 3600))
-	D=$(($X / 24))
-	echo "$(($D/28))/$(($D % 28))/$(($X % 24))"
 }
 
 
 function calc {
 	A="say ($*)"
-	echo "$A" | perl -Mv5.14
-
-}
-
-
-function branch {
-	A=$1
-	git fetch 
-	if [ -z "$A" ]; then
-		git branch --list
-	else
-		git checkout -q $A || git checkout -b $A origin/master
-	fi
+	perl -Mv5.18 -e "$A"
 }
 
 

@@ -5,10 +5,6 @@ if [[ -f $HOME/.profile ]]; then
 	source $HOME/.profile
 fi
 
-alias ssh="myssh"
-alias scp="myscp"
-alias sudo="mysudo"
-alias ssh-add="mysshadd"
 alias grep="grep --line-buffered"
 alias more='less'
 alias lc="wc -l"
@@ -40,13 +36,13 @@ if which vim >/dev/null 2>&1; then
 	export EDITOR="/usr/bin/vim"
 fi
 
-#if which java >/dev/null 2>&1; then
-#	if `java -version 2>&1 | grep -q OpenJDK`; then
-#		export JAVA_HOME=/usr/lib/jvm/jre
-#	else
-#		export JAVA_HOME=/usr/java/latest
-#	fi
-#fi
+if java -version >/dev/null 2>&1; then
+	if `java -version 2>&1 | grep -q OpenJDK`; then
+		export JAVA_HOME=/usr/lib/jvm/jre
+	else
+		export JAVA_HOME=/usr/java/latest
+	fi
+fi
 
 
 if [[ -d /opt/chef ]]; then
@@ -62,6 +58,7 @@ if [[ -d $HOME/.rbenv ]]; then
 fi
 
 if [[ -d $HOME/.venv ]]; then 
+	VIRTUALENVWRAPPER_PYTHON=/usr/local/bin/python3
 	VIRTUAL_ENV_DISABLE_PROMPT=1
 	. $HOME/.venv/bin/activate
 	if [ -f /usr/local/bin/virtualenvwrapper.sh ]; then
@@ -79,8 +76,11 @@ if [[ -d $HOME/.local/bin ]]; then
 fi
 
 
-if [[ -d $HOME/nvm ]]; then
-    export NVM_DIR="$HOME/nvm"
+if [[ -d $HOME/.nvm ]]; then
+    export NVM_DIR="$HOME/.nvm"
+    export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+    
     IMPORT="/usr/local/opt/nvm/nvm.sh"
     if [ ! -x "/usr/local/opt" ]; then
         IMPORT=`which nvm.sh`
@@ -103,5 +103,4 @@ elif [[ -x /usr/lib/golang/bin/go ]]; then
 fi
 
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
