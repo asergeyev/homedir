@@ -35,11 +35,12 @@ brewIn mysql-client
 brewCask iterm2
 brewCask bitbar
 brewCask zoomus
+brewCask alfred
 brewCask insomnia
 brewCask karabiner-elements
 brewCask rescuetime
 brewCask visual-studio-code
-brewCask wireshark
+#brewCask wireshark
 brewCask google-chrome
 brewCask google-cloud-sdk
 #brewCask rstudio
