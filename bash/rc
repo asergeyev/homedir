@@ -1,14 +1,11 @@
 # .bashrc
 
-
-if [[ -f $HOME/.profile ]]; then
-	source $HOME/.profile
+if [[ -f "$HOME/.bash_funcs" ]]; then
+    source $HOME/.bash_funcs
 fi
 
-alias ssh="myssh"
-alias scp="myscp"
-alias sudo="mysudo"
-alias ssh-add="mysshadd"
+
+
 alias grep="grep --line-buffered"
 alias more='less'
 alias lc="wc -l"
@@ -16,7 +13,6 @@ alias zlc="zcat | wc -l"
 alias f="cut -f "
 alias xargs-c="xargs -n1 -I% bash -c"
 alias ff="find . -type f"
-alias code="code-insiders"
 
 if sort --help | grep -q parallel; then
 	alias sort="sort --parallel 5 -S 3G"
@@ -57,16 +53,18 @@ if [[ -d /opt/chef ]]; then
 fi
 
 if [[ -d $HOME/.rbenv ]]; then 
-	eval "$($HOME/.rbenv/bin/rbenv init -)"
+	eval "$(rbenv init -)"
 	export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
 fi
 
-if [[ -d $HOME/.venv ]]; then 
-	VIRTUAL_ENV_DISABLE_PROMPT=1
-	. $HOME/.venv/bin/activate
-	if [ -f /usr/local/bin/virtualenvwrapper.sh ]; then
-		. /usr/local/bin/virtualenvwrapper.sh
-	fi
+if command -v python >/dev/null 2>&1; then
+    eval "$(pyenv init -)"
+    export CLOUDSDK_PYTHON=python2
+fi
+
+if [[ -d $HOME/.cargo/bin ]]; then
+    export RUST_BACKTRACE=1
+    export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
 if perl -Mlocal::lib -e '' >/dev/null 2>&1; then
@@ -79,17 +77,21 @@ if [[ -d $HOME/.local/bin ]]; then
 fi
 
 
-if [[ -d $HOME/nvm ]]; then
-    export NVM_DIR="$HOME/nvm"
+if [[ -d $HOME/.nvm ]]; then
+    export NVM_DIR="$HOME/.nvm"
     IMPORT="/usr/local/opt/nvm/nvm.sh"
     if [ ! -x "/usr/local/opt" ]; then
         IMPORT=`which nvm.sh`
     fi
     . $IMPORT
+
+	# export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+	# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 fi
 
 
 GO11MODULE=on
+GOPRIVATE="github.com/fastly"
 
 if [[ -x /usr/local/go/bin/go ]]; then
 	export GOPATH=$HOME/go
@@ -102,6 +104,8 @@ elif [[ -x /usr/lib/golang/bin/go ]]; then
 	export PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
 fi
 
+PS1='[\u@\h \W]\$ '
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+if [[ -f "$HOME/.bashlocal" ]]; then
+    source $HOME/.bashlocal
+fi

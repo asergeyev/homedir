@@ -1,70 +1,16 @@
-.profilefunction lcut {
-	f=$1
-	FN=$2
-	if `echo "$f" | grep -q ':'`; then
-		A0=$(echo "$f"| cut -d: -f1)
-		A1=$(echo "$f"| cut -d: -f2)
+if [ -n "$BASH_VERSION" ]; then
+    # include .bashrc if it exists
+    if [[ -f /etc/bashrc ]]; then
+        source /etc/bashrc
+    fi
 
-		A0=${A0:-1}
-		if [ -z "$A1" ]; then
-			tail -n +$A0 $FN
-		else
-			tail -n +$A0 $FN | head -$(($A1 - $A0 + 1))
-		fi
-	else
-		echo first argument should be "n:m", got \"$f\" >/dev/stderr
-		return 1
-	fi
-}
+    if [[ -f /etc/bash.bashrc ]]; then
+        source /etc/bash.bashrc
+    fi
 
-function myssh {
-	printf "\033]2;[*] ssh $*\007"
-	env TERM=xterm /usr/bin/ssh $*
-}
-
-function mysshadd {
-	printf "\033]2;[*] ssh-add $*\007"
-	env TERM=xterm /usr/bin/ssh-add $*
-}
-
-function myscp {
-	printf "\033]2;[*] scp $*\007"
-	env TERM=xterm /usr/bin/scp $*
-}
-
-function mysudo {
-	HOST=`hostname --long 2>/dev/null || hostname`
-	printf "\033]2;[*] sudo $HOST\007"
-	env TERM=xterm /usr/bin/sudo $*
-}
-
-function fcl {
-	head -1 $1 | tr '\t' '\n' | cat -n
-}
-
-function mt {
-	S=$(date +%s)
-	X=$(($S / 3600))
-	D=$(($X / 24))
-	echo "$(($D/28))/$(($D % 28))/$(($X % 24))"
-}
-
-
-function calc {
-	A="say ($*)"
-	echo "$A" | perl -Mv5.14
-
-}
-
-
-function branch {
-	A=$1
-	git fetch 
-	if [ -z "$A" ]; then
-		git branch --list
-	else
-		git checkout -q $A || git checkout -b $A origin/master
-	fi
-}
+    if [[ -f "$HOME/.bashrc" ]]; then
+        source "$HOME/.bashrc"
+    fi
+fi
 
 

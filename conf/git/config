@@ -11,7 +11,7 @@
 	default = current
 
 [core]
-	excludesfile = /Users/asergeyev/projects/homedir/.gitignore
+	excludesfile = ~/.config/git/ignore
 
 [url "git@github.com:asergeyev/"]
 	insteadOf="https://github.com/asergeyev/"

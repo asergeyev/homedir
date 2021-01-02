@@ -1,0 +1,46 @@
+function lcut {
+	f=$1
+	FN=$2
+	if `echo "$f" | grep -q ':'`; then
+		A0=$(echo "$f"| cut -d: -f1)
+		A1=$(echo "$f"| cut -d: -f2)
+
+		A0=${A0:-1}
+		if [ -z "$A1" ]; then
+			tail -n +$A0 $FN
+		else
+			tail -n +$A0 $FN | head -$(($A1 - $A0 + 1))
+		fi
+	else
+		echo first argument should be "n:m", got \"$f\" >/dev/stderr
+		return 1
+	fi
+}
+
+
+# get list of fields from tsv header (line per column)
+function fcl {
+	head -1 $1 | tr '\t' '\n' | cat -n
+}
+
+
+function calc {
+	A="say ($*)"
+	echo "$A" | perl -Mv5.14
+
+}
+
+
+function endless {
+    CMD="$1"
+    shift 1
+    while true; do
+        $CMD "$@"
+        echo "Ctrl-C again to quit"
+        sleep 3s
+    	if [[ $? != 130 ]]; then
+    	    exit
+    	fi
+    	echo $?
+    done
+}
