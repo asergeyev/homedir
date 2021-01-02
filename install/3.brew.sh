@@ -24,7 +24,6 @@ brewIn gnu-tar
 brewIn go
 brewIn jq
 brewIn midnight-commander
-brewIn rbenv
 brewIn tmux
 brewIn wget
 brewIn xz
