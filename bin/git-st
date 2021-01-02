@@ -1,0 +1,7 @@
+#!/bin/bash
+
+esc=$(printf '\033')
+
+# preserve colors with script
+
+script -q /dev/null git status | sed "s/\(On branch \)\(.*\)/\1${esc}[32m\2${esc}[0m/"
