@@ -19,3 +19,5 @@ ln -s $SRC/.tmux.conf .
 mkdir -p .local/bin
 cd .local/bin
 ls $SRC/bin | xargs -I% -n1 ln -fs $SRC/bin/% .
+
+git checkout -b $HOSTNAME
