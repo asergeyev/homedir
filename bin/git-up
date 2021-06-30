@@ -1,14 +1,20 @@
 #!/bin/bash
 
 BRANCH=$1
-MAIN="main"
 
-if git branch | fgrep -q sandbox; then
+MAIN=""
+
+git fetch
+
+if git show-ref -q sandbox; then
     MAIN="sandbox"
-elif git branch | fgrep -q main; then
+elif git show-ref -q main; then
     MAIN="main"
-elif git branch | fgrep -q master; then
+elif git show-ref -q master; then
     MAIN="master"
+else
+    echo "Could not find proper upstream branch"
+    exit 1
 fi
 
 git pull --rebase --autostash origin $MAIN
