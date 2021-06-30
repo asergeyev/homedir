@@ -1,0 +1,12 @@
+#!/bin/bash
+
+BRANCH=$1
+MAIN="main"
+
+if git branch | fgrep -q sandbox; then
+    MAIN="sandbox"
+elif git branch | fgrep -q master; then
+    MAIN="master"
+fi
+
+git pull --rebase --autostash origin $MAIN

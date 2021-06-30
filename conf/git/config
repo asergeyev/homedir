@@ -1,28 +1,38 @@
 [user]
 	name = Alex Sergeyev
-	email = abc@alexsergeyev.com
-	signingkey = 325F6BA1
-
-	## For work
-	# email = asergeyev@fastly.com
-	# signingkey = 21DE8F6F
+	email = asergeyev@fastly.com
+	signingkey = 21DE8F6F
 
 [push]
 	default = current
+
+[pull]
+	default = current
+	ff = only
 
 [core]
 	excludesfile = ~/.config/git/ignore
 
 [url "git@github.com:asergeyev/"]
 	insteadOf="https://github.com/asergeyev/"
+	insteadOf="https://github.com/asergeyev/"
 
 [url "git@github.com:fastly/"]
 	insteadOf="https://github.com/fastly/"
-
-[url "git@github.com:joewalnes/websocketd"]
-	insteadOf="https://github.com/joewalnes/websocketd"
+	insteadOf="http://github.com/fastly/"
 
 [alias]
 	push-force=push --force-with-lease
-	statys=status
+	statys=st
+	status=st
+	s=st
+	f=fork
 	fetch=fetch --prune
+	b=branch
+	bm=branch --merged
+	bn=branch --no-merged
+	bD=branch -D
+	c=checkout
+
+
+

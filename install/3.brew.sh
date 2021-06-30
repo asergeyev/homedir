@@ -1,59 +1,66 @@
 #!/bin/bash
 
+UPGRADE=$1
 
 brewOp() {
-  echo $2 ...
-  sleep 3
-  if brew $1 ls --versions "$2"; then
-    brew upgrade "$2"
+  if brew list $1 --versions "$2"; then
+    if [[ -n "$UPGRADE" ]]; then
+        echo $2 ...
+        brew upgrade $1 "$2"
+    fi
   else
-    brew install "$2"
+    echo $2 ...
+    brew install $1 "$2"
   fi
 }
 
 brewIn()   { brewOp "" $1; }
-brewCask() { brewOp "cask" $1; }
+brewCask() { brewOp "--cask" $1; }
 
+
+brewIn bash
+
+if ! fgrep -q /usr/local/bin/bash /etc/shells ; then
+    echo "/usr/local/bin/bash" | sudo tee -a /etc/shells > /dev/null
+fi
 
 brewIn coreutils
 brewIn curl
 brewIn git
-
-
 brewIn gnu-tar
 brewIn go
+brewIn gpg
+#brewIn htop
 brewIn jq
 brewIn midnight-commander
-brewIn rbenv
+brewIn mysql-client
+brewIn rustup
 brewIn tmux
+brewIn vim
 brewIn wget
 brewIn xz
-brewIn gpg
-brewIn htop
-brewIn mysql-client
 
 
-brewCask iterm2
+brewCask alfred
 brewCask bitbar
-brewCask zoomus
-brewCask insomnia
-brewCask karabiner-elements
-brewCask rescuetime
-brewCask visual-studio-code
-brewCask wireshark
 brewCask google-chrome
 brewCask google-cloud-sdk
+brewCask insomnia
+brewCask iterm2
+brewCask karabiner-elements
+#brewCask rescuetime
 brewCask rstudio
+brewCask visual-studio-code
+#brewCask wireshark
+brewCask zoomus
 
 brew tap homebrew/cask-fonts
 brewCask font-fira-code
 brewCask font-inconsolata
 
-
-brewIn nvm
-brewIn rbenv
-brewIn perl
-brewIn python3
 brewIn cpanminus
-brewIn vim
+brewIn nvm
+brewIn perl
+brewIn pyenv
+brewIn rbenv
 

@@ -149,6 +149,25 @@
           ]
         }
       ]
+    },
+    {
+      "description": "Win keyboard ALT+1 to ESC",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "1",
+            "modifiers": {
+              "mandatory": ["left_alt"]
+            }
+          },
+          "to": [
+            {
+              "key_code": "escape"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

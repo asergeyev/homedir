@@ -1,18 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash -x
 
 
 
 cd $HOME
-mkdir .nvm
-export NVM_DIR="$HOME/.nvm"
-IMPORT="/usr/local/opt/nvm/nvm.sh"
-if [ ! -x "/usr/local/opt" ]; then
-    IMPORT=`which nvm.sh`
-fi
-. $IMPORT
-
-nvm install 12
-nvm use 12
+mkdir -p .nvm
 
 if brew ls --versions yarn; then brew upgrade yarn; else brew install yarn; fi
 
