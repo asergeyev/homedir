@@ -5,6 +5,8 @@ MAIN="main"
 
 if git branch | fgrep -q sandbox; then
     MAIN="sandbox"
+elif git branch | fgrep -q main; then
+    MAIN="main"
 elif git branch | fgrep -q master; then
     MAIN="master"
 fi
