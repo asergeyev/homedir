@@ -13,13 +13,8 @@
 [core]
 	excludesfile = ~/.config/git/ignore
 
-[url "git@github.com:asergeyev/"]
-	insteadOf="https://github.com/asergeyev/"
-	insteadOf="https://github.com/asergeyev/"
-
-[url "git@github.com:fastly/"]
-	insteadOf="https://github.com/fastly/"
-	insteadOf="http://github.com/fastly/"
+[url "ssh://git@github.com:"]
+	insteadOf="https://github.com"
 
 [alias]
 	push-force=push --force-with-lease
@@ -30,6 +25,7 @@
 	fetch=fetch --prune
 	b=branch
 	bm=branch --merged
+	bM=branch -m
 	bn=branch --no-merged
 	bD=branch -D
 	c=checkout

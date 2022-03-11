@@ -3,6 +3,8 @@
 cd $(dirname $0)
 SRC=$(pwd)
 
+chsh -s /bin/bash
+
 cd $HOME
 mkdir -p .local/bin
 cd .local/bin

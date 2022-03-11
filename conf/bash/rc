@@ -44,8 +44,8 @@ if which vim >/dev/null 2>&1; then
 	export EDITOR="/usr/bin/vim"
 fi
 
-if [ -f $(brew --prefix)/etc/$(basename $SHELL)_completion ]; then
-    . $(brew --prefix)/etc/$(basename $SHELL)_completion/brew
+if [ -f $(brew --prefix)/etc/bash_completion ]; then
+    . $(brew --prefix)/etc/bash_completion/brew
 fi
 
 
@@ -80,7 +80,7 @@ fi
 
 #echo debug: Rust `date +"%T.%N"`
 if [[ -d $HOME/.cargo/bin ]]; then
-	source $HOME/.cargo/env
+	. $HOME/.cargo/env
 	export RUST_BACKTRACE=1
 fi
 
@@ -97,8 +97,9 @@ if [[ -d $HOME/.nvm ]]; then
     if [ ! -x "/usr/local/opt" ]; then
         IMPORT=`which nvm.sh`
     fi
-    . $IMPORT --no-use
+    . $IMPORT
     [ -s "/usr/local/opt/nvm/etc/bash_completion.d/nvm" ] && . "/usr/local/opt/nvm/etc/bash_completion.d/nvm"
+    export PATH=$(yarn global bin):$PATH
 fi
 
 #echo debug: Go `date +"%T.%N"`
@@ -106,13 +107,13 @@ GO11MODULE=on
 GOPRIVATE="github.com/fastly"
 
 if [[ -x /usr/local/go/bin/go ]]; then
-	export GOPATH=$HOME/go
+	export GOPATH=$HOME/.go
 	export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 elif [[ -x /usr/local/bin/go ]]; then
-	export GOPATH=$HOME/go
+	export GOPATH=$HOME/.go
 	export PATH=$PATH:$GOPATH/bin
 elif [[ -x /usr/lib/golang/bin/go ]]; then
-	export GOPATH=$HOME/go
+	export GOPATH=$HOME/.go
 	export PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
 fi
 
