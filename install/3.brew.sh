@@ -52,13 +52,13 @@ brewCask karabiner-elements
 brewCask rstudio
 brewCask visual-studio-code
 #brewCask wireshark
-brewCask zoomus
+brewCask zoom
 
 brew tap homebrew/cask-fonts
 brewCask font-fira-code
 brewCask font-inconsolata
 
-brewIn cpanminus
+#brewIn cpanminus
 brewIn nvm
 brewIn perl
 brewIn pyenv

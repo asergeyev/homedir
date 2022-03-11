@@ -1,0 +1,15 @@
+#!/bin/bash
+
+esc=$(printf '\033')
+
+cd ~/projects
+
+for d in `ls -d app.scope scope-*`; do
+    cd $d
+    # script command helps to preserve colors
+    script -q /dev/null git status | \
+	sed "s/O\(n branch \)\(.*\)/${esc}[32m${d}${esc}[0m o\1${esc}[32m\2${esc}[0m/" | \
+	fgrep -v 'Your branch is up to date with' | \
+	grep "\S"
+    cd ..
+done

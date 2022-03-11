@@ -32,7 +32,7 @@ fi
 
 mkdir -p $HOME/.local/bin
 cd $HOME/.local/bin
-wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
-
+curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
+chmod +x cloud_sql_proxy
 
 

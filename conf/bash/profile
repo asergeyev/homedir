@@ -1,4 +1,6 @@
 if [ -n "$BASH_VERSION" ]; then
+    export SHELL=$BASH
+
     if [[ -f /etc/bashrc ]]; then
         source /etc/bashrc
     fi
