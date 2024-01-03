@@ -25,22 +25,16 @@ function fcl {
 
 
 function calc {
-	A="say ($*)"
-	echo "$A" | perl -Mv5.14
-
+	echo "say ($*)" | perl -Mv5.14
 }
 
 
-function endless {
-    CMD="$1"
-    shift 1
-    while true; do
-        $CMD "$@"
-        echo "Ctrl-C again to quit"
-        sleep 3s
-    	if [[ $? != 130 ]]; then
-    	    exit
-    	fi
-    	echo $?
-    done
+function reps {
+	while true; do
+		trap '' SIGINT
+		$*
+		trap - SIGINT
+		echo "Continue? (↵ or 3s) - (^C to stop)"
+		read -r -t 3
+	done
 }
