@@ -5,13 +5,14 @@ if [[ -f "$HOME/.bash_funcs" ]]; then
 fi
 
 if [[ -d $HOME/.local/bin ]]; then
-	export PATH=$HOME/.local/bin:$PATH
+	PATH=$HOME/.local/bin:$PATH
 fi
 
 if [[ -f "$HOME/.bashlocal" ]]; then
     source $HOME/.bashlocal
 fi
 
+export HOMEBREW_NO_ANALYTICS=1
 
 alias grep="grep --line-buffered"
 alias more='less'
@@ -29,18 +30,16 @@ fi
 
 if [[ -n "$DISPLAY" && "$TERM" == "xterm" ]]; then
 	TERM=xterm-256color
-	export TERM
 fi
 
 if which mc >/dev/null 2>&1; then
 	if [[ "$TERM" == "xterm-256color" ]]; then
-		MC_SKIN=xoria256
-		export MC_SKIN
+		export MC_SKIN=xoria256
 	fi
 fi
 
 if which vim >/dev/null 2>&1; then
-	export EDITOR="/usr/bin/vim"
+	EDITOR="/usr/bin/vim"
 fi
 
 if [ -f $(brew --prefix)/etc/bash_completion ]; then
@@ -53,15 +52,15 @@ if which java >/dev/null 2>&1; then
 		# java stub, ignore...
 		:
 	elif `java -version 2>&1 | grep -q OpenJDK`; then
-		export JAVA_HOME=/usr/lib/jvm/jre
+		JAVA_HOME=/usr/lib/jvm/jre
 	else
-		export JAVA_HOME=/usr/java/latest
+		JAVA_HOME=/usr/java/latest
 	fi
 fi
 
 
 if [[ -d /opt/chef ]]; then
-	export PATH="$PATH:/opt/chef/embedded/bin"
+	PATH="$PATH:/opt/chef/embedded/bin"
 	if [ -f $HOME/.chef/.profile ]; then
 		source $HOME/.chef/.profile
 	fi
@@ -70,7 +69,7 @@ fi
 echo debug: Ruby `date +"%T.%N"`
 if [[ -d $HOME/.rbenv ]]; then
 	eval "$(rbenv init -)"
-	export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
+	PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"
 fi
 
 echo debug: Python `date +"%T.%N"`
@@ -78,13 +77,13 @@ if command -v pyenv >/dev/null 2>&1; then
 	PYENV_ROOT="$HOME/.pyenv"
 	PATH="$PYENV_ROOT/bin:$PATH"
 	eval "$(pyenv init - --no-rehash)"
-	export CLOUDSDK_PYTHON=python3
+	CLOUDSDK_PYTHON=python3
 fi
 
 echo debug: Rust `date +"%T.%N"`
 if [[ -d $HOME/.cargo/bin ]]; then
 	. $HOME/.cargo/env
-	export RUST_BACKTRACE=1
+	RUST_BACKTRACE=1
 fi
 
 echo debug: Perl `date +"%T.%N"`
@@ -95,7 +94,7 @@ fi
 
 echo debug: NVM `date +"%T.%N"`
 if [[ -d $HOME/.nvm ]]; then
-    export NVM_DIR="$HOME/.nvm"
+    NVM_DIR="$HOME/.nvm"
     IMPORT="/usr/local/opt/nvm/nvm.sh"
     if [ ! -x "/usr/local/opt" ]; then
         IMPORT=`which nvm.sh`
@@ -110,14 +109,14 @@ GO11MODULE=on
 GOPRIVATE="github.com/fastly"
 
 if [[ -x /usr/local/go/bin/go ]]; then
-	export GOPATH=$HOME/.go
-	export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
+	GOPATH=$HOME/.go
+	PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 elif [[ -x /usr/local/bin/go ]]; then
-	export GOPATH=$HOME/.go
-	export PATH=$PATH:$GOPATH/bin
+	GOPATH=$HOME/.go
+	PATH=$PATH:$GOPATH/bin
 elif [[ -x /usr/lib/golang/bin/go ]]; then
-	export GOPATH=$HOME/.go
-	export PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
+	GOPATH=$HOME/.go
+	PATH=$PATH:/usr/lib/golang/bin:$GOPATH/bin
 fi
 
 echo debug: Finished `date +"%T.%N"`

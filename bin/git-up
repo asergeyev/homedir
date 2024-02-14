@@ -4,7 +4,7 @@ BRANCH=$1
 
 MAIN=""
 
-git fetch
+git fetch -p
 
 if git show-ref -q origin/sandbox; then
     MAIN="sandbox"

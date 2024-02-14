@@ -17,18 +17,33 @@
 	insteadOf="https://github.com"
 
 [alias]
-	push-force=push --force-with-lease
-	statys=st
-	status=st
-	s=st
-	f=fork
-	fetch=fetch --prune
-	b=branch
-	bm=branch --merged
-	bM=branch -m
-	bn=branch --no-merged
+	b=branch --sort=-committerdate
 	bD=branch -D
+	bM=branch -M
+	bm=branch --merged --sort=-committerdate
+	bn=branch --no-merged --sort=-committerdate
+	bg=! git branch --sort=-committerdate | grep
 	c=checkout
+	cb=checkout -b
+	ff=fork
+	main=!git fetch --prune && git checkout main && git up
+	sandbox=!git fetch --prune && git checkout sandbox && git up
+	fetch=fetch --prune
+	l=log --oneline
+	push-force=push --force-with-lease
+	s=st
+	status=st
+	statys=st
 
+[user]
+	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG+2DIN/tL0alOybIzQMlmrGI6ejCHxROGH9M0vBo2Vi
 
+[gpg]
+	format = ssh
+
+[gpg "ssh"]
+	program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+
+[commit]
+	gpgsign = true
 
