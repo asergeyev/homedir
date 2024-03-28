@@ -4,17 +4,17 @@ BRANCH=$1
 
 MAIN=""
 
-git fetch
+git fetch -p
 
-if git show-ref -q sandbox; then
+if git show-ref -q origin/sandbox; then
     MAIN="sandbox"
-elif git show-ref -q main; then
+elif git show-ref -q origin/main; then
     MAIN="main"
-elif git show-ref -q master; then
+elif git show-ref -q origin/master; then
     MAIN="master"
 else
     echo "Could not find proper upstream branch"
     exit 1
 fi
 
-git pull --rebase --autostash origin $MAIN
+git pull -q --ff origin $MAIN || git pull --rebase --autostash origin $MAIN
