@@ -60,6 +60,9 @@ config .config/wireshark/
 config .config/zed/
 config .config/mc/
 config .config/mise/
+# Each config as of its last homedir-sync; restored over the copies 03 makes, so homedir-sync can still tell which
+# side changed (only base/: the restore's own state next to it belongs to this Mac)
+config .local/state/homedir/base/
 # OrbStack's Docker engine config (docker.json); its machines and images are rebuilt, never backed up
 config .orbstack/config/
 
