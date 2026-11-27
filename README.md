@@ -47,7 +47,7 @@ First save the old Mac's state ([Saving Mac state before reinstall](#saving-mac-
 1. **System Settings → General → Transfer or Reset → Erase All Content and Settings…**
 2. On first boot:
    - Create your user with the same short name as on the old Mac, so absolute paths in restored files (`/Users/<you>/projects`, the Obsidian vault) still match.
-   - Turn on **FileVault** and **Touch ID**.
+   - Turn on **FileVault**.
    - **Skip Migration Assistant.**
 3. Install the Xcode Command Line Tools:
    ```sh
