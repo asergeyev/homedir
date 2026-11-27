@@ -63,6 +63,18 @@ FROM_GIVEN=$(cd "$FROM" && pwd -L)
 FROM=$(cd "$FROM" && pwd -P)
 MCP_FILE="$FROM/extra/mcpServers.json"
 REPO_MARKER="$HOME/.local/state/homedir/protected-repos"
+# defaults writes the login user's preferences whatever $HOME says: under another HOME (a test's) a
+# Library/Preferences plist is restored as a plain file, and with the login home unknown it is left out (and fails)
+LOGIN_HOME=$(dscl -plist . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null \
+  | plutil -extract dsAttrTypeStandard:NFSHomeDirectory.0 raw -o - - 2>/dev/null) || LOGIN_HOME=
+if [ -z "$LOGIN_HOME" ]; then
+  PREFS=unknown
+elif [ "$(cd "$HOME" && pwd -P)" = "$(cd "$LOGIN_HOME" 2>/dev/null && pwd -P)" ]; then
+  PREFS=defaults
+else
+  PREFS=file
+  echo "Note: ~ is not $(id -un)'s login home, so Library/Preferences plists are restored as plain files"
+fi
 # Bulk groups compare files by size and time; the rest by content (rsync -c), exact but reading every file
 BULK="vault projects personal"
 FAILED=() KEPT=() EXARGS=()
@@ -509,7 +521,16 @@ do_unit() {
     return 0
   fi
   case "$rel" in
-    Library/Preferences/*.plist) plist_unit "$rel" "$idx" ;;
+    Library/Preferences/*.plist)
+      case "$PREFS" in
+        defaults) plist_unit "$rel" "$idx" ;;
+        file) file_unit "$rel" "$idx" ;;
+        *)
+          line "~/$rel" "left out: dscl can't tell whether ~ is the login home"
+          if [ "$PLAN" = 0 ]; then FAILED+=("~/$rel (not imported: login home unknown)"); fi
+          ;;
+      esac
+      ;;
     */) dir_unit "$rel" "$idx" ;;
     *) file_unit "$rel" "$idx" ;;
   esac
