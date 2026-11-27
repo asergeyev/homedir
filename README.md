@@ -1,4 +1,4 @@
-# homedir (Apple Silicon · No-Brew · `mise` + `uv` + OrbStack)
+# homedir -- opinionated way to prepare mac for work
 
 Workstation setup for Apple Silicon macOS with **zero Homebrew**, applied by reinstalling: wipe the Mac, then rebuild it from this repo plus a backup of the files worth keeping. No Migration Assistant, no full Time Machine restore.
 
@@ -7,12 +7,14 @@ Workstation setup for Apple Silicon macOS with **zero Homebrew**, applied by rei
   - [`mise`](https://mise.jdx.dev/) for runtimes and core CLIs: `go` (latest 1.x), `node`, `pnpm`, `uv`, `jq`, `yq`, `gh`, `glab`, `rg`, `delta`, `oasdiff`, `mc` (Midnight Commander, from conda-forge)
   - `uv`-managed Python: the newest is the default `python3`/`python` in `~/.local/bin`, with 3.12 alongside for irregular CA clients
   - Go tools in `~/go/bin` (`gopls`, `gofumpt`, `golangci-lint-v2`, `dlv`, `garble`, `protoc-gen-go`, `docker-credential-ecr-login`, plus the private ones your `~/.zprofile-work` lists)
-  - **OrbStack** for `docker`, `docker compose`, `docker buildx` and the Linux machines below, with one 20 GB memory limit for all of them, not started at login. Docker's `credsStore` is `ecr-login`, so ECR images pull with your `AWS_PROFILE`; other registries pull anonymously.
+  - OrbStack for `docker`, `docker compose`, `docker buildx` and the Linux machines below, with one 20 GB memory limit for all of them, not started at login. Docker's `credsStore` is `ecr-login`, so ECR images pull with your `AWS_PROFILE`; other registries pull anonymously.
   - Standalone `clickhouse` client
-  - **VS Code** (Zed optional), **Claude.app** and **Antigravity.app** with their CLIs (`claude`, `agy`); the rest in [`APPS.md`](APPS.md)
+  - VS Code (Zed optional), Claude.app and Antigravity.app with their CLIs (`claude`, `agy`); the rest in [`APPS.md`](APPS.md)
 - **OrbStack Linux machines** (Lima stays only as an [emergency rollback](#rolling-back-to-lima)):
   - `dev`: Ubuntu toolbox for `aws`, `ansible`, `terraform`/`tf`, `terragrunt`, `kubectl`, `k9s`, `helm`, `trivy`, `nmap`, `iperf3`. On the host each is a `~/.local/bin` link to `bin/vm-shim`, which runs it in `dev` with your AWS profile, region and `KUBECONFIG`, never secrets (`kubectl` is OrbStack's own; `dev kubectl` runs the VM's). The VM home links `~/.aws`, `~/.kube`, `~/.ssh`, `~/.s3cfg` and `~/.config/{gh,glab-cli}` to the Mac copies and trusts every CA in `~/.config/ca-certificates/`.
   - `clickhouse`: scratch instance, latest version by default; stopped until `orbctl start clickhouse`.
+
+A minimal reinstall works without internet too: the restore needs only what macOS ships and the backup carries homedir, so restore `secrets,work,~/projects/homedir/` instead of cloning, run `01`–`03`, and continue from `04` once online.
 
 ## Configs: copied, synced back with homedir-sync
 
