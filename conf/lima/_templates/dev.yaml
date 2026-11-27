@@ -1,0 +1,144 @@
+# Linux Dev Toolbox VM (Option A): holds AWS, Ansible, Terraform, K8s, and network/diagnostic CLIs
+# so the macOS host stays Homebrew-free and clean.
+#
+# Create once:  limactl create --tty=false --name=dev template://dev
+# Use:          dev aws s3 ls   |   dev   (interactive shell)
+minimumLimaVersion: 1.1.0
+
+base:
+- template://_images/ubuntu-lts
+
+vmType: vz
+cpus: 4
+memory: 6GiB
+disk: 40GiB
+
+containerd:
+  system: false
+  user: false
+
+ssh:
+  forwardAgent: true
+
+# Whole Mac home, writable, at the same path (as OrbStack shares /Users): `dev <cmd>` works from any
+# directory under ~, and the user provision step links ~/.aws, ~/.kube, ~/.ssh, ... into the VM home.
+mounts:
+- location: "~"
+  writable: true
+
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    if [ -f /etc/dev-toolbox-provisioned ]; then
+      exit 0
+    fi
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y \
+      ca-certificates curl dnsutils git gnupg htop iperf3 jq \
+      mc nmap unzip xz-utils
+
+    # AWS CLI v2 (arm64)
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o /tmp/awscliv2.zip
+    unzip -q /tmp/awscliv2.zip -d /tmp
+    /tmp/aws/install --update
+    rm -rf /tmp/aws /tmp/awscliv2.zip
+
+    # Trivy apt repo
+    curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key \
+      | gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+      >/etc/apt/sources.list.d/trivy.list
+    apt-get update
+    apt-get install -y trivy
+
+    touch /etc/dev-toolbox-provisioned
+
+- mode: user
+  script: |
+    #!/bin/bash
+    set -eux -o pipefail
+    # Install uv + mise for user-space infra CLIs (terraform, terragrunt, kubectl, k9s, helm, ansible)
+    if ! command -v uv >/dev/null 2>&1; then
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+    fi
+    if ! command -v mise >/dev/null 2>&1; then
+      curl -fsSL https://mise.run | sh
+    fi
+
+    export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+    # Same Mac-home links and CAs as conf/orbstack/provision-dev.sh (keep the two in sync).
+    # The VM home (/home/<user>.linux) isn't the Mac home; never replace an existing VM path,
+    # and for a real VM directory (e.g. ~/.ssh with Lima's authorized_keys) link only missing entries.
+    mac_home="/Users/$(id -un)"
+    link_mac_path() {
+      local src="$mac_home/$1" dst="$HOME/$1" entry name
+      [ -e "$src" ] || return 0
+      if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+        mkdir -p "$(dirname "$dst")"
+        ln -s "$src" "$dst"
+      elif [ -d "$dst" ] && [ ! -L "$dst" ] && [ -d "$src" ]; then
+        for entry in "$src"/* "$src"/.[!.]*; do
+          [ -e "$entry" ] || continue
+          name=$(basename "$entry")
+          if [ ! -e "$dst/$name" ] && [ ! -L "$dst/$name" ]; then
+            ln -s "$entry" "$dst/$name"
+          fi
+        done
+      fi
+    }
+    for p in .aws .kube .ssh .s3cfg .config/gh .config/glab-cli; do
+      link_mac_path "$p"
+    done
+    # Every CA (PEM, *.crt) in the Mac's ~/.config/ca-certificates into the system trust store, mirrored
+    ca_src="$mac_home/.config/ca-certificates"
+    ca_dst=/usr/local/share/ca-certificates/mac-home
+    ca_changed=""
+    sudo mkdir -p "$ca_dst"
+    for src in "$ca_src"/*.crt; do
+      [ -f "$src" ] || continue
+      if ! cmp -s "$src" "$ca_dst/${src##*/}"; then
+        sudo install -m 0644 "$src" "$ca_dst/${src##*/}"
+        ca_changed=1
+      fi
+    done
+    for dst in "$ca_dst"/*.crt; do
+      [ -f "$dst" ] || continue
+      if [ ! -f "$ca_src/${dst##*/}" ]; then
+        sudo rm -f "$dst"
+        ca_changed=1
+      fi
+    done
+    if [ -n "$ca_changed" ]; then
+      sudo update-ca-certificates --fresh
+    fi
+
+    # Ansible via uv on Python 3.12 (3.13+ rejects irregular CA: basicConstraints not critical)
+    uv tool install --python 3.12 --with-executables-from ansible-core ansible
+
+    # Infra CLIs via mise; Terraform/Terragrunt pinned to what most ~/projects/TF repos use,
+    # and a repo's .terraform-version / .terragrunt-version wins (idiomatic version files)
+    mkdir -p "$HOME/.config/mise/conf.d"
+    printf '%s\n' '[settings]' 'idiomatic_version_file_enable_tools = ["terraform", "terragrunt"]' \
+      >"$HOME/.config/mise/conf.d/idiomatic-version-files.toml"
+    mise use -g \
+      gh@latest \
+      glab@latest \
+      helm@latest \
+      k9s@latest \
+      kubectl@latest \
+      kubectx@latest \
+      terraform@1.14.3 \
+      terragrunt@1.0.3 \
+      yq@latest
+
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$HOME/.local/share/mise/shims/terraform" "$HOME/.local/bin/tf"
+
+    # Ensure non-login / login shells have mise & uv on PATH
+    if ! grep -q 'mise/shims' "$HOME/.profile" 2>/dev/null; then
+      echo 'export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
+    fi

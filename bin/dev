@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# dev — run a command (or interactive shell) inside the `dev` Linux VM (OrbStack primary, Lima fallback).
+set -euo pipefail
+
+VM="dev"
+
+# Non-secret selector vars forwarded into the VM when set. Never add secrets here
+# (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, *_TOKEN): the VM reads ~/.aws etc. itself.
+FORWARD_VARS="AWS_PROFILE AWS_REGION AWS_DEFAULT_REGION KUBECONFIG"
+
+if command -v orb >/dev/null 2>&1; then
+  # OrbStack forwards only a few vars by default; ORBENV (colon-separated names) adds more
+  for v in $FORWARD_VARS; do
+    if [ -n "${!v:-}" ]; then
+      ORBENV="${ORBENV:+$ORBENV:}$v"
+    fi
+  done
+  [ -z "${ORBENV:-}" ] || export ORBENV
+  if [ "$#" -eq 0 ]; then
+    exec orb -m "$VM"
+  else
+    # OrbStack doesn't document whether commands get a login shell or keep the Mac cwd: force both, so
+    # ~/.profile puts mise shims and ~/.local/bin (ansible) on PATH and .terraform-version is found
+    exec orb -m "$VM" bash -lc 'cd "$1" 2>/dev/null || true; shift; exec "$@"' dev "$PWD" "$@"
+  fi
+elif command -v limactl >/dev/null 2>&1; then
+  status=$(limactl list --json 2>/dev/null | jq -r "select(.name==\"$VM\") | .status" 2>/dev/null || true)
+  if [ -z "$status" ]; then
+    echo "Lima VM '$VM' does not exist. Run: limactl create --tty=false --name=$VM template://$VM" >&2
+    exit 1
+  fi
+  if [ "$status" != "Running" ]; then
+    limactl start --tty=false "$VM" >/dev/null
+  fi
+  if [ "$#" -eq 0 ]; then
+    exec limactl shell "$VM"
+  fi
+  # Lima has no env forwarding; pass the set ones through `env K=V cmd`
+  envargs=()
+  for v in $FORWARD_VARS; do
+    if [ -n "${!v:-}" ]; then
+      envargs+=("$v=${!v}")
+    fi
+  done
+  exec limactl shell "$VM" -- env ${envargs[@]+"${envargs[@]}"} "$@"
+else
+  echo "Neither OrbStack ('orb') nor Lima ('limactl') is installed." >&2
+  exit 1
+fi

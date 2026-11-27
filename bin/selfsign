@@ -1,12 +1,14 @@
 #!/bin/sh
+# selfsign — make a self-signed certificate NAME.crt and its key NAME.key, valid a year. NAME is the CN and the
+# subjectAltName, which Go, Python and browsers check instead of the CN.
+set -eu
 
-# Make self-signed cert
-NAME=$1
+NAME=${1:-}
 if [ -z "$NAME" ]; then
-	echo "Usage: selfsign NAME"
+	echo "Usage: selfsign NAME" >&2
 	exit 1
 fi
 
 openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 \
-  -keyout $NAME.key -out $NAME.crt -subj /CN=$NAME/O=SomeCompany/C=US/ST=SomeState/L=SomeCity
-
+  -keyout "$NAME.key" -out "$NAME.crt" -subj "/CN=$NAME/O=SomeCompany/C=US/ST=SomeState/L=SomeCity" \
+  -addext "subjectAltName=DNS:$NAME"

@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+# homedir-backup — Run first when starting a reinstall. Copies every group conf/backup-manifest.txt lists
+# (keys, work files, configs, Claude Code, app profiles, Obsidian, ~/projects, ~/Documents, ~/Desktop, ~/Downloads)
+# into <backup>/home/, laid out exactly like ~, and writes a git report of unpushed work; --omit-work and
+# --omit-personal leave a group out. The backup also gets its own copy of homedir-restore and the manifest, so
+# on the new Mac it can restore the SSH keys and work files before homedir is cloned.
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--to DIR] [--omit-work] [--omit-personal]
+  --to DIR         backup folder (default: ~/BACKUP_FOLDER, a symlink to an external encrypted drive)
+  --omit-work      leave out the work group, and its MCP servers (work mcp:<glob> lines) from extra/; a project's
+                   own mcpServers in extra/claude.json.full are kept
+  --omit-personal  leave out the personal group: ~/Documents, ~/Desktop and ~/Downloads
+Without them, every group in conf/backup-manifest.txt is backed up.
+EOF
+}
+
+DEST="$HOME/BACKUP_FOLDER"
+OMIT_WORK=0
+OMIT_PERSONAL=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --to) DEST=${2:?--to needs a directory}; shift 2 ;;
+    --omit-work) OMIT_WORK=1; shift ;;
+    --omit-personal) OMIT_PERSONAL=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+
+# omitted GROUP: did --omit-work or --omit-personal leave GROUP out?
+omitted() {
+  case "$1" in
+    work) [ "$OMIT_WORK" = 1 ] ;;
+    personal) [ "$OMIT_PERSONAL" = 1 ] ;;
+    *) return 1 ;;
+  esac
+}
+
+BIN_DIR=$(dirname "$(readlink -f "$0")")
+MANIFEST="$BIN_DIR/../conf/backup-manifest.txt"
+[ -f "$MANIFEST" ] || { echo "Manifest not found: $MANIFEST" >&2; exit 1; }
+
+if [ ! -d "$DEST" ]; then
+  echo "Destination does not exist: $DEST" >&2
+  echo "Create today's folder on an external encrypted drive and link it first:" >&2
+  echo "  mkdir -p /Volumes/<Drive>/reinstall.$(date +%F)" >&2
+  echo "  ln -sfn /Volumes/<Drive>/reinstall.$(date +%F) ~/BACKUP_FOLDER" >&2
+  exit 1
+fi
+REAL_DEST=$(cd "$DEST" && pwd -P)
+case "$REAL_DEST" in
+  "$HOME"/*|"$HOME")
+    echo "WARNING: $DEST resolves inside $HOME ($REAL_DEST)." >&2
+    echo "Make sure ~/BACKUP_FOLDER points to an external drive before erasing your Mac!" >&2
+    read -r -p "Continue anyway? [y/N] " ans
+    case "$ans" in
+      [yY]|[yY][eE][sS]) ;;
+      *) exit 1 ;;
+    esac
+    ;;
+esac
+
+umask 077 # the report and MCP files are written private; copied files keep their own modes
+FAILED=()
+
+# Manifest: "<group> <path>" items, "- <path>" skips inside a listed directory, "* <pattern>" skips anywhere
+ITEM_GROUPS=() ITEM_PATHS=() SKIPS=() PATTERNS=()
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in '#'*) continue ;; esac
+  read -r kind path <<<"$line"
+  [ -n "$kind" ] || continue
+  case "$kind" in
+    -) SKIPS+=("$path") ;;
+    '*') PATTERNS+=("$path") ;;
+    *) ITEM_GROUPS+=("$kind"); ITEM_PATHS+=("$path") ;;
+  esac
+done <"$MANIFEST"
+
+# exclude_args <dir path>: set EXARGS to the rsync excludes for that directory, left-out groups' items in it too
+# (.config/git/config-work in .config/git/)
+exclude_args() {
+  local item=$1 p i
+  EXARGS=()
+  for p in ${PATTERNS[@]+"${PATTERNS[@]}"}; do EXARGS+=(--exclude "$p"); done
+  for p in ${SKIPS[@]+"${SKIPS[@]}"}; do
+    case "$p" in "$item"?*) EXARGS+=(--exclude "/${p#"$item"}") ;; esac
+  done
+  for i in "${!ITEM_PATHS[@]}"; do
+    omitted "${ITEM_GROUPS[$i]}" || continue
+    p=${ITEM_PATHS[$i]}
+    case "$p" in "$item"?*) EXARGS+=(--exclude "/${p#"$item"}") ;; esac
+  done
+}
+
+# work_mcp: set DROP to the ~/.claude.json MCP servers whose first matching manifest mcp:<glob> line is a work one
+work_mcp() {
+  local names name i glob
+  DROP=()
+  names=$(jq -r '.mcpServers // {} | keys[]' "$HOME/.claude.json") || return 1
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    for i in "${!ITEM_PATHS[@]}"; do
+      case "${ITEM_PATHS[$i]}" in mcp:*) ;; *) continue ;; esac
+      glob=${ITEM_PATHS[$i]#mcp:}
+      # shellcheck disable=SC2254
+      case "$name" in
+        $glob)
+          if [ "${ITEM_GROUPS[$i]}" = work ]; then DROP+=("$name"); fi
+          break
+          ;;
+      esac
+    done
+  done <<<"$names"
+}
+
+# leftover <path>: does <backup>/home/<path> hold a copy of that left-out item? In a directory, files of the items
+# still backed up (the vault's Documents/Obsidian/ in Documents/) don't count
+leftover() {
+  local item=$1 d="$REAL_DEST/home/$1" i p prune=()
+  case "$item" in
+    mcp:*) return 1 ;;
+    */) [ -d "$d" ] || return 1 ;;
+    *) [ -e "$d" ] || [ -L "$d" ]; return ;;
+  esac
+  for i in "${!ITEM_PATHS[@]}"; do
+    p=${ITEM_PATHS[$i]}
+    if omitted "${ITEM_GROUPS[$i]}"; then continue; fi
+    case "$p" in "$item"?*) prune+=(-path "$REAL_DEST/home/${p%/}" -prune -o) ;; esac
+  done
+  [ -n "$(find "$d" ${prune[@]+"${prune[@]}"} ! -type d -print -quit 2>/dev/null)" ]
+}
+
+# backup_item <path>: copy ~/<path> to <backup>/home/<path>
+backup_item() {
+  local path=$1 src="$HOME/$1" dst="$REAL_DEST/home/$1"
+  # mcp:<glob> items split the MCP servers saved to extra/ below; there is no file to copy
+  case "$path" in mcp:*) return 0 ;; esac
+  [ -e "$src" ] || [ -L "$src" ] || return 0
+  echo "    ~/$path"
+  case "$path" in
+    Library/Preferences/*.plist)
+      # Read through cfprefsd: the plist on disk can lag behind the running app
+      mkdir -p "$(dirname "$dst")"
+      defaults export "$(basename "$path" .plist)" "$dst" || FAILED+=("~/$path (defaults export)")
+      ;;
+    */)
+      mkdir -p "$dst"
+      exclude_args "$path"
+      rsync -a --delete ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
+      ;;
+    *)
+      mkdir -p "$(dirname "$dst")"
+      rsync -a "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
+      ;;
+  esac
+}
+
+echo "==> git report: branches, status, stashes and diffs of each repo and worktree in ~/projects"
+mkdir -p "$REAL_DEST/git-report"
+REPORT="$REAL_DEST/git-report/summary.txt"
+: >"$REPORT"
+# A linked worktree's .git is a file, so match both
+{ find "$HOME/projects" -maxdepth 3 -name .git 2>/dev/null || true; } | sort | while IFS= read -r gitdir; do
+  repo=$(dirname "$gitdir")
+  rel=${repo#"$HOME/projects/"}
+  {
+    echo "=== $rel ==="
+    git -C "$repo" branch -vv 2>&1 || true
+    git -C "$repo" status -s 2>&1 || true
+    stashes=$(git -C "$repo" stash list 2>/dev/null || true)
+    [ -n "$stashes" ] && printf -- '-- stashes --\n%s\n' "$stashes"
+    echo ""
+  } >>"$REPORT"
+  safe_name=$(printf '%s' "$rel" | tr '/' '_')
+  for kind in unstaged staged; do
+    out="$REAL_DEST/git-report/$safe_name.$kind.diff"
+    if [ "$kind" = staged ]; then git -C "$repo" diff --cached >"$out" 2>/dev/null || true
+    else git -C "$repo" diff >"$out" 2>/dev/null || true; fi
+    [ -s "$out" ] || rm -f "$out"
+  done
+done
+
+LAST_GROUP= LEFT_OUT= LEFTOVER=()
+for i in "${!ITEM_PATHS[@]}"; do
+  group=${ITEM_GROUPS[$i]} path=${ITEM_PATHS[$i]}
+  if omitted "$group"; then
+    [ "$group" = "$LAST_GROUP" ] || { echo "==> $group: left out"; LAST_GROUP=$group; LEFT_OUT="$LEFT_OUT $group"; }
+    # A copy from an earlier run into this folder stays; the end of the run lists it
+    if leftover "$path"; then LEFTOVER+=("$path"); fi
+    continue
+  fi
+  [ "$group" = "$LAST_GROUP" ] || { echo "==> $group"; LAST_GROUP=$group; }
+  backup_item "$path"
+done
+
+echo "==> Claude Code MCP servers (merged back on restore) and the full ~/.claude.json (never restored whole)"
+mkdir -p "$REAL_DEST/extra"
+# Written afresh, so a failure below can't leave an earlier run's copy (and its work servers) behind
+rm -f "$REAL_DEST/extra/claude.json.full" "$REAL_DEST/extra/mcpServers.json"
+if [ -f "$HOME/.claude.json" ]; then
+  DROP=()
+  if ! command -v jq >/dev/null 2>&1; then
+    FAILED+=("extra/mcpServers.json (jq not found)")
+    if [ "$OMIT_WORK" = 1 ]; then FAILED+=("extra/claude.json.full (jq not found, and --omit-work needs it)")
+    else cp -p "$HOME/.claude.json" "$REAL_DEST/extra/claude.json.full"; fi
+  elif [ "$OMIT_WORK" = 1 ] && ! work_mcp; then
+    FAILED+=("extra/mcpServers.json and claude.json.full (jq can't read ~/.claude.json)")
+  else
+    if [ ${#DROP[@]} -gt 0 ]; then
+      echo "    left out: ${DROP[*]}"
+      # Top-level servers only: a project's own (projects[].mcpServers) stay
+      jq 'del(.mcpServers[$ARGS.positional[]])' "$HOME/.claude.json" --args "${DROP[@]}" \
+        >"$REAL_DEST/extra/claude.json.full" \
+        || { rm -f "$REAL_DEST/extra/claude.json.full"; FAILED+=("extra/claude.json.full (jq)"); }
+    else
+      cp -p "$HOME/.claude.json" "$REAL_DEST/extra/claude.json.full"
+    fi
+    jq '{mcpServers: (.mcpServers // {})} | del(.mcpServers[$ARGS.positional[]])' "$HOME/.claude.json" \
+      --args ${DROP[@]+"${DROP[@]}"} >"$REAL_DEST/extra/mcpServers.json" || FAILED+=("extra/mcpServers.json (jq)")
+  fi
+fi
+
+cp "$MANIFEST" "$REAL_DEST/backup-manifest.txt"
+cp "$BIN_DIR/homedir-restore" "$REAL_DEST/homedir-restore"
+
+echo ""
+echo "Backup complete -> $REAL_DEST"
+[ -z "$LEFT_OUT" ] || echo "Left out:$LEFT_OUT"
+echo "Review git state before wiping: $REAL_DEST/git-report/summary.txt"
+if [ ${#LEFTOVER[@]} -gt 0 ]; then
+  echo "Note: these left-out items are still in the backup from an earlier run; delete them if it mustn't hold them:"
+  for p in "${LEFTOVER[@]}"; do echo "    $REAL_DEST/home/$p"; done
+fi
+if [ -d "$REAL_DEST/home-secrets" ]; then
+  echo "Note: home-secrets/, config/, claude/, apps/, projects/ and Documents/ there are from the old backup layout;"
+  echo "      nothing reads them now, so delete them once this backup is checked."
+fi
+if [ ${#FAILED[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "Some items failed; copy them by hand before wiping:" >&2
+  printf '    %s\n' "${FAILED[@]}" >&2
+  exit 1
+fi

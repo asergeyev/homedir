@@ -1,0 +1,144 @@
+# ClickHouse server + client in a Lima VM (the latest stable release at first boot unless param CH_VERSION pins one),
+# set up as a one-node cluster `main` with embedded Keeper and prod's macros, so ON CLUSTER DDL and Replicated
+# tables work.
+#
+# Create once:  limactl create --tty=false --name=clickhouse template://clickhouse
+# Use:          limactl start clickhouse    (server starts with the VM)
+#               clickhouse client --port 39000             (host client)
+#               limactl shell clickhouse clickhouse-client  (exact server version)
+#               limactl stop clickhouse
+# Change the release or config: edit ~/.lima/clickhouse/lima.yaml (this template only seeds new instances),
+#   e.g. limactl edit --tty=false --set '.param.CH_VERSION="<x.y.z.w>"' clickhouse, then restart the VM
+minimumLimaVersion: 1.1.0
+
+base:
+- template://_images/ubuntu-lts
+- template://_default/mounts
+
+vmType: vz
+cpus: 4
+memory: 8GiB
+disk: 100GiB
+
+containerd:
+  system: false
+  user: false
+
+param:
+  CH_VERSION: latest
+
+provision:
+- mode: system
+  script: |
+    #!/bin/bash
+    # Install ClickHouse on first boot (latest, or the pinned CH_VERSION) and again after CH_VERSION changes
+    set -eux -o pipefail
+    pkgs="clickhouse-common-static clickhouse-server clickhouse-client"
+    have=$(dpkg-query -W -f='${Version}' clickhouse-server 2>/dev/null || true)
+    if [ "$have" = "$PARAM_CH_VERSION" ] || { [ "$PARAM_CH_VERSION" = latest ] && [ -n "$have" ]; }; then
+      exit 0
+    fi
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y apt-transport-https ca-certificates curl gnupg
+    curl -fsSL https://packages.clickhouse.com/rpm/lts/repodata/repomd.xml.key \
+      | gpg --batch --yes --dearmor -o /usr/share/keyrings/clickhouse-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=$(dpkg --print-architecture)]" \
+      "https://packages.clickhouse.com/deb stable main" >/etc/apt/sources.list.d/clickhouse.list
+    apt-get update
+    apt-mark unhold $pkgs || true
+    if [ "$PARAM_CH_VERSION" = latest ]; then
+      apt-get install -y $pkgs </dev/null
+    else
+      apt-get install -y --allow-downgrades $(printf "%s=$PARAM_CH_VERSION " $pkgs) </dev/null
+    fi
+    apt-mark hold $pkgs
+    # The unit may already run the old binary it started at boot
+    systemctl try-restart clickhouse-server
+- mode: system
+  script: |
+    #!/bin/bash
+    # Write the local config on every boot; restart the server only when it changed
+    set -eux -o pipefail
+    changed=0
+    put() {
+      local tmp
+      tmp=$(mktemp)
+      cat >"$tmp"
+      if cmp -s "$tmp" "$1"; then rm -f "$tmp"; return; fi
+      install -m 0644 "$tmp" "$1"
+      rm -f "$tmp"
+      changed=1
+    }
+    put /etc/clickhouse-server/config.d/lima.xml <<'EOF'
+    <clickhouse>
+        <!-- Ports stay on the guest's loopback; Lima forwards 9000/8123 to host 39000/38123 -->
+        <logger><level>information</level></logger>
+        <!-- Prod runs UTC; the guest inherits the host's zone -->
+        <timezone>UTC</timezone>
+        <interserver_http_port>9009</interserver_http_port>
+        <interserver_http_host>127.0.0.1</interserver_http_host>
+
+        <keeper_server>
+            <tcp_port>9181</tcp_port>
+            <server_id>1</server_id>
+            <log_storage_path>/var/lib/clickhouse/coordination/log</log_storage_path>
+            <snapshot_storage_path>/var/lib/clickhouse/coordination/snapshots</snapshot_storage_path>
+            <raft_configuration>
+                <server><id>1</id><hostname>127.0.0.1</hostname><port>9234</port></server>
+            </raft_configuration>
+        </keeper_server>
+        <zookeeper>
+            <node><host>127.0.0.1</host><port>9181</port></node>
+        </zookeeper>
+
+        <!-- Same cluster name, macros and replica paths as prod -->
+        <remote_servers>
+            <main>
+                <shard><replica><host>127.0.0.1</host><port>9000</port></replica></shard>
+            </main>
+        </remote_servers>
+        <macros>
+            <cluster>main</cluster>
+            <shard>s0</shard>
+            <replica>r0</replica>
+        </macros>
+        <default_replica_path>/clickhouse/tables/{uuid}/{cluster}-{shard}</default_replica_path>
+        <default_replica_name>{replica}</default_replica_name>
+        <distributed_ddl><path>/clickhouse/task_queue/ddl</path></distributed_ddl>
+    </clickhouse>
+    EOF
+    # The packaged users.xml already gives the passwordless default user access_management
+    systemctl enable clickhouse-server
+    if [ "$changed" = 1 ]; then systemctl restart clickhouse-server; else systemctl start clickhouse-server; fi
+
+probes:
+- script: |
+    #!/bin/bash
+    # Wait for the install, then for the server to answer
+    set -eux -o pipefail
+    if ! timeout 600s bash -c 'until command -v clickhouse-client >/dev/null 2>&1; do sleep 3; done'; then
+      echo >&2 "clickhouse-client is not installed yet"
+      exit 1
+    fi
+    if ! timeout 120s bash -c 'until clickhouse-client -q "SELECT 1" </dev/null >/dev/null 2>&1; do sleep 2; done'; then
+      echo >&2 "clickhouse-server is not answering"
+      exit 1
+    fi
+  hint: See /var/log/cloud-init-output.log and /var/log/clickhouse-server/clickhouse-server.err.log in the guest
+
+portForwards:
+- guestPort: 9000
+  hostPort: 39000
+- guestPort: 8123
+  hostPort: 38123
+- guestIP: 0.0.0.0
+  proto: any
+  ignore: true
+
+message: |
+  ClickHouse is up as a one-node cluster `main`.
+  Host client:  clickhouse client --port 39000
+  VM client:    limactl shell {{.Name}} clickhouse-client
+  HTTP:         http://127.0.0.1:38123
+  Stop:         limactl stop {{.Name}}

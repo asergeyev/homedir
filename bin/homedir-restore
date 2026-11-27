@@ -1,0 +1,664 @@
+#!/usr/bin/env bash
+# homedir-restore — Put back, by choice, what bin/homedir-backup saved: <backup>/home/<path> goes to
+# ~/<path>, following the manifest stored with that backup. Without a selection it only shows the plan: each item
+# and how it compares with this Mac. Nothing here is deleted, an existing symlink (a homedir link) is never
+# replaced and a repo already in ~/projects (the fresh homedir clone) is left alone. Claude Code MCP servers are
+# merged into ~/.claude.json with jq, so their passwords are never printed.
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: $(basename "$0") [--from DIR] [--only LIST | --all] [--guided] [--dry-run]
+  (no selection)   show the plan: each item, and whether it is new here, the same or different; change nothing
+  --only LIST      restore these, comma-separated:
+                     a group: secrets work config claude apps vault projects personal
+                     a file or directory in the backup: ~/.zshrc, ~/.config/git/, <backup>/home/.ssh/config
+                     a Claude Code MCP server: mcp:NAME (a glob, like mcp:mcp-clickhouse*)
+  --all            restore every group
+  --guided         go item by item (every group, or the --only list) and ask: restore, skip, diff, ...
+  --dry-run        show the plan for --only or --all; change nothing
+  --from DIR       backup folder (default: ~/BACKUP_FOLDER)
+A restored file replaces the one here, homedir's copies of the tool configs included (compare them with homedir's
+afterwards: homedir-sync); nothing is deleted and a symlink here stays. A directory leaves out the manifest items
+inside it, which come back with their own group (.config/git/config-work with work).
+Quit Claude (the app and any claude session), iTerm2, VS Code, Obsidian, Zed, Viscosity and Insomnia first (run it
+from Terminal.app): a running app rewrites its settings when it quits.
+EOF
+}
+
+die() {
+  echo "$*" >&2
+  exit 2
+}
+
+FROM="$HOME/BACKUP_FOLDER"
+ONLY=
+ALL=0
+GUIDED=0
+DRY_RUN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --from) FROM=${2:?--from needs a directory}; shift 2 ;;
+    --only) ONLY=${2:?--only needs a list}; shift 2 ;;
+    --all) ALL=1; shift ;;
+    --guided) GUIDED=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
+if [ -n "$ONLY" ] && [ "$ALL" = 1 ]; then die "--only and --all don't mix: --all is every group"; fi
+if [ "$GUIDED" = 1 ] && [ "$DRY_RUN" = 1 ]; then die "--guided and --dry-run don't mix: --dry-run alone shows the plan"; fi
+if [ "$GUIDED" = 1 ] && [ ! -t 0 ]; then die "--guided asks questions, so it needs a terminal"; fi
+# PLAN=1: show what would happen, change nothing
+PLAN=0
+if [ "$DRY_RUN" = 1 ] || { [ -z "$ONLY" ] && [ "$ALL" = 0 ] && [ "$GUIDED" = 0 ]; }; then PLAN=1; fi
+
+if [ ! -d "$FROM/home" ] || [ ! -f "$FROM/backup-manifest.txt" ]; then
+  echo "Not a backup made by homedir-backup: $FROM (no home/ or backup-manifest.txt)" >&2
+  exit 1
+fi
+# The folder as given (~/BACKUP_FOLDER is a symlink) and resolved: --only takes a backup path in either form
+FROM_GIVEN=$(cd "$FROM" && pwd -L)
+FROM=$(cd "$FROM" && pwd -P)
+MCP_FILE="$FROM/extra/mcpServers.json"
+REPO_MARKER="$HOME/.local/state/homedir/protected-repos"
+# Bulk groups compare files by size and time; the rest by content (rsync -c), exact but reading every file
+BULK="vault projects personal"
+FAILED=() KEPT=() EXARGS=()
+CUR_GROUP=
+QUIT=0
+CLAUDE_DONE=0
+
+# Manifest: "<group> <path>" items, "- <path>" skips inside a listed directory, "* <pattern>" skips anywhere
+ITEM_GROUPS=() ITEM_PATHS=() SKIPS=() PATTERNS=()
+GROUP_LIST=
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in '#'*) continue ;; esac
+  read -r kind path <<<"$line"
+  [ -n "$kind" ] || continue
+  case "$kind" in
+    -) SKIPS+=("$path") ;;
+    '*') PATTERNS+=("$path") ;;
+    *)
+      ITEM_GROUPS+=("$kind")
+      ITEM_PATHS+=("$path")
+      case " $GROUP_LIST " in *" $kind "*) ;; *) GROUP_LIST="${GROUP_LIST:+$GROUP_LIST }$kind" ;; esac
+      ;;
+  esac
+done <"$FROM/backup-manifest.txt"
+[ ${#ITEM_PATHS[@]} -gt 0 ] || die "The backup's manifest lists nothing: $FROM/backup-manifest.txt"
+
+# in_list WORD LIST: is WORD one of the space-separated LIST?
+in_list() {
+  case " $2 " in *" $1 "*) return 0 ;; esac
+  return 1
+}
+
+# trim TEXT: print TEXT without leading and trailing blanks
+trim() {
+  local t=$1
+  t=${t#"${t%%[![:space:]]*}"}
+  printf '%s\n' "${t%"${t##*[![:space:]]}"}"
+}
+
+# to_rel TOKEN: print the backup-relative path TOKEN names (~/x, $HOME/x, /Users/<you>/x or <backup>/home/x), with a
+# trailing / when the backup holds a directory there
+to_rel() {
+  local t=$1
+  case "$t" in
+    '~/'*) t="$HOME/${t#'~/'}" ;;
+    '$HOME/'*) t="$HOME/${t#'$HOME/'}" ;;
+  esac
+  # The backup folder first: ~/BACKUP_FOLDER is itself under ~
+  case "$t" in
+    "$FROM/home/"*) t=${t#"$FROM/home/"} ;;
+    "$FROM_GIVEN/home/"*) t=${t#"$FROM_GIVEN/home/"} ;;
+    "$HOME/"*) t=${t#"$HOME/"} ;;
+    *) return 1 ;;
+  esac
+  while :; do
+    case "$t" in */) t=${t%/} ;; *) break ;; esac
+  done
+  [ -n "$t" ] || return 1
+  if [ -d "$FROM/home/$t" ] && [ ! -L "$FROM/home/$t" ]; then t="$t/"; fi
+  printf '%s\n' "$t"
+}
+
+# owner REL: print the index of the manifest item REL lies in; the longest wins (.config/git/config-work over
+# .config/git/)
+owner() {
+  local rel=$1 i p best= len=0
+  for i in "${!ITEM_PATHS[@]}"; do
+    p=${ITEM_PATHS[$i]}
+    case "$p" in mcp:*) continue ;; esac
+    case "$rel" in
+      "$p") ;;
+      "$p"?*) case "$p" in */) ;; *) continue ;; esac ;;
+      *) continue ;;
+    esac
+    if [ ${#p} -gt "$len" ]; then
+      best=$i
+      len=${#p}
+    fi
+  done
+  [ -n "$best" ] || return 1
+  printf '%s\n' "$best"
+}
+
+# mcp_all: print the name of every MCP server in the backup
+mcp_all() {
+  [ -f "$MCP_FILE" ] || return 0
+  jq -r '.mcpServers // {} | keys[]' "$MCP_FILE"
+}
+
+# mcp_names INDEX: print the backed-up MCP servers manifest item INDEX (mcp:<glob>) takes: those its glob matches
+# and no earlier mcp: item took
+mcp_names() {
+  local name j glob
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    for j in "${!ITEM_PATHS[@]}"; do
+      case "${ITEM_PATHS[$j]}" in mcp:*) ;; *) continue ;; esac
+      glob=${ITEM_PATHS[$j]#mcp:}
+      # shellcheck disable=SC2254
+      case "$name" in
+        $glob)
+          if [ "$j" = "$1" ]; then printf '%s\n' "$name"; fi
+          break
+          ;;
+      esac
+    done
+  done < <(mcp_all)
+}
+
+# select_path TOKEN: add the path TOKEN names to SEL_PATHS, and the manifest item it lies in to SEL_OWNERS
+select_path() {
+  local rel idx
+  rel=$(to_rel "$1") || die "Not a path under ~ or $FROM/home: $1"
+  [ -e "$FROM/home/$rel" ] || [ -L "$FROM/home/${rel%/}" ] || die "Not in the backup: $FROM/home/$rel"
+  idx=$(owner "$rel") || die "No manifest item holds ~/$rel"
+  SEL_PATHS+=("$rel")
+  SEL_OWNERS+=("$idx")
+}
+
+# Selection: groups, paths (each with its manifest item) and MCP server globs
+SEL_GROUPS= SEL_PATHS=() SEL_OWNERS=() SEL_MCP=()
+if [ -n "$ONLY" ]; then
+  IFS=, read -ra tokens <<<"$ONLY"
+  for t in ${tokens[@]+"${tokens[@]}"}; do
+    t=$(trim "$t")
+    case "$t" in
+      '') ;;
+      mcp:*) SEL_MCP+=("${t#mcp:}") ;;
+      *[/~]*|'$HOME'*) select_path "$t" ;;
+      *)
+        in_list "$t" "$GROUP_LIST" || die "Unknown group: $t (the manifest has: $GROUP_LIST; a path starts with ~/ or /)"
+        SEL_GROUPS="$SEL_GROUPS $t"
+        ;;
+    esac
+  done
+else
+  for g in $GROUP_LIST; do SEL_GROUPS="$SEL_GROUPS $g"; done
+fi
+if [ ${#SEL_MCP[@]} -gt 0 ]; then
+  command -v jq >/dev/null 2>&1 || die "jq not found, and mcp:NAME needs it"
+  for g in "${SEL_MCP[@]}"; do
+    found=0
+    while IFS= read -r name; do
+      # shellcheck disable=SC2254
+      case "$name" in $g) found=1 ;; esac
+    done < <(mcp_all)
+    [ "$found" = 1 ] || die "No MCP server matches mcp:$g in $MCP_FILE"
+  done
+fi
+
+# linked_ancestor REL: print the first of ~/REL and its parents (below ~) that is a symlink here
+linked_ancestor() {
+  local rest=${1%/} prefix=
+  while [ -n "$rest" ]; do
+    prefix=${prefix:+$prefix/}${rest%%/*}
+    case "$rest" in */*) rest=${rest#*/} ;; *) rest= ;; esac
+    if [ -L "$HOME/$prefix" ]; then
+      printf '%s\n' "$prefix"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# exclude_args REL: set EXARGS to the rsync excludes for directory REL: the manifest's skips and patterns, and the
+# manifest items inside it (restored as their own items)
+exclude_args() {
+  local rel=$1 p
+  EXARGS=()
+  for p in ${PATTERNS[@]+"${PATTERNS[@]}"}; do EXARGS+=(--exclude "$p"); done
+  for p in ${SKIPS[@]+"${SKIPS[@]}"} "${ITEM_PATHS[@]}"; do
+    case "$p" in "$rel"?*) EXARGS+=(--exclude "/${p#"$rel"}") ;; esac
+  done
+}
+
+# protected_repos: print the repos (projects/<path>) to leave alone: those in ~/projects now, or, while a whole
+# projects/ copy is unfinished, those there before it started. copy_dir freezes that list in $REPO_MARKER and drops
+# it when the copy completes, so a re-run after an interrupted copy resumes the half-copied repos.
+protected_repos() {
+  local p
+  if [ -f "$REPO_MARKER" ]; then
+    cat "$REPO_MARKER"
+    return 0
+  fi
+  [ -d "$HOME/projects" ] || return 0
+  { find "$HOME/projects" -maxdepth 3 -name .git 2>/dev/null || true; } | while IFS= read -r p; do
+    p=${p#"$HOME/"}
+    echo "${p%/.git}"
+  done
+}
+
+# protect_args REL: add to EXARGS (and KEPT) what exists under ~/REL and must stay: every symlink, and under
+# projects/ every protected repo
+protect_args() {
+  local rel=$1 d="$HOME/${1%/}" p r repos=()
+  [ -d "$d" ] || return 0
+  case "$rel" in
+    projects/*)
+      while IFS= read -r r; do
+        case "$r/" in
+          "$rel"?*)
+            EXARGS+=(--exclude "/${r#"$rel"}/")
+            KEPT+=("~/$r/")
+            repos+=("$r/")
+            ;;
+        esac
+      done < <(protected_repos)
+      ;;
+  esac
+  while IFS= read -r p; do
+    p=${p#"$HOME/"}
+    # A symlink inside a protected repo is already covered
+    for r in ${repos[@]+"${repos[@]}"}; do
+      case "$p" in "$r"*) continue 2 ;; esac
+    done
+    EXARGS+=(--exclude "/${p#"$rel"}")
+    KEPT+=("~/$p")
+  done < <(find "$d" -type l 2>/dev/null)
+}
+
+# header GROUP: print the group heading once
+header() {
+  if [ "$1" != "$CUR_GROUP" ]; then
+    echo "==> $1"
+    CUR_GROUP=$1
+  fi
+}
+
+# line LABEL STATE: one item of the plan or the restore
+line() {
+  printf '    %-52s %s\n' "$1" "$2"
+}
+
+# ask KEYS PROMPT: read an answer from the terminal into REPLY until it is one of the letters in KEYS (q at end of input)
+ask() {
+  while :; do
+    printf '      %s: ' "$2" >/dev/tty
+    if ! IFS= read -r REPLY </dev/tty; then
+      REPLY=q
+      echo >/dev/tty
+      return 0
+    fi
+    REPLY=$(printf '%s' "${REPLY:0:1}" | tr '[:upper:]' '[:lower:]')
+    if [ -n "$REPLY" ]; then
+      case "$1" in *"$REPLY"*) return 0 ;; esac
+    fi
+  done
+}
+
+# page: show stdin in $PAGER on the terminal
+page() {
+  # shellcheck disable=SC2086
+  ${PAGER:-less -FRX} >/dev/tty || true
+}
+
+# secure INDEX [PATH]: owner-only access to PATH (default: the whole of manifest item INDEX) when that item is in the
+# secrets or work group
+secure() {
+  local p=${2:-$HOME/${ITEM_PATHS[$1]%/}}
+  case "${ITEM_GROUPS[$1]}" in secrets|work) ;; *) return 0 ;; esac
+  [ -e "$p" ] || return 0
+  chmod -R go-rwx "$p" || FAILED+=("$p (chmod go-rwx)")
+}
+
+# copy_file REL INDEX [DST]: copy the backup's file to ~/REL (or DST); fails after noting it in FAILED
+copy_file() {
+  local dst=${3:-$HOME/$1} rc=0
+  mkdir -p "$(dirname "$dst")"
+  rsync -a "$FROM/home/$1" "$dst" || rc=$?
+  if [ "$rc" = 0 ]; then
+    secure "$2"
+    # A copy kept beside the item is outside it
+    if [ -n "${3:-}" ]; then secure "$2" "$dst"; fi
+    return 0
+  fi
+  FAILED+=("~/$1 (rsync exit $rc)")
+  return 1
+}
+
+# copy_dir REL INDEX CK: copy the backup's directory over ~/REL with EXARGS; fails after noting it in FAILED
+copy_dir() {
+  local rc=0 repos
+  mkdir -p "$HOME/$1"
+  if [ "$1" = projects/ ] && [ ! -f "$REPO_MARKER" ]; then
+    repos=$(protected_repos)
+    mkdir -p "$(dirname "$REPO_MARKER")"
+    printf '%s\n' "$repos" >"$REPO_MARKER"
+  fi
+  rsync -a ${3:+"$3"} ${EXARGS[@]+"${EXARGS[@]}"} "$FROM/home/$1" "$HOME/$1" || rc=$?
+  if [ "$rc" = 0 ]; then
+    secure "$2"
+    if [ "$1" = projects/ ]; then rm -f "$REPO_MARKER"; fi
+    return 0
+  fi
+  FAILED+=("~/$1 (rsync exit $rc; re-run to resume)")
+  return 1
+}
+
+# file_unit REL INDEX: one file
+file_unit() {
+  local rel=$1 idx=$2 src="$FROM/home/$1" dst="$HOME/$1" state
+  if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
+    state=new
+  elif cmp -s "$src" "$dst"; then
+    state=same
+  else
+    state=differs
+  fi
+  if [ "$PLAN" = 1 ] || [ "$state" = same ]; then
+    line "~/$rel" "$state"
+    return 0
+  fi
+  if [ "$GUIDED" = 1 ]; then
+    line "~/$rel" "$state"
+    while :; do
+      if [ "$state" = new ]; then
+        ask rsdq "[r]estore [s]kip [d]iff [q]uit"
+      else
+        ask rsdkq "[r]estore [s]kip [d]iff [k]eep it beside yours as .from-backup [q]uit"
+      fi
+      [ "$REPLY" = d ] || break
+      { diff -u "$( [ -e "$dst" ] && echo "$dst" || echo /dev/null)" "$src" || true; } | page
+    done
+    case "$REPLY" in
+      r) if copy_file "$rel" "$idx"; then line "" restored; fi ;;
+      k) if copy_file "$rel" "$idx" "$dst.from-backup"; then line "" "saved as ~/$rel.from-backup"; fi ;;
+      q) QUIT=1 ;;
+    esac
+    return 0
+  fi
+  if copy_file "$rel" "$idx"; then
+    if [ "$state" = new ]; then line "~/$rel" added; else line "~/$rel" replaced; fi
+  fi
+}
+
+# plist_unit REL INDEX: a Library/Preferences plist, compared and restored through defaults
+plist_unit() {
+  local rel=$1 src="$FROM/home/$1" domain state
+  domain=$(basename "$rel" .plist)
+  if ! defaults read "$domain" >/dev/null 2>&1; then
+    state=new
+  elif cmp -s <(defaults export "$domain" - | plutil -convert xml1 -o - -) <(plutil -convert xml1 -o - "$src"); then
+    state=same
+  else
+    state=differs
+  fi
+  if [ "$PLAN" = 1 ] || [ "$state" = same ]; then
+    line "~/$rel" "$state"
+    return 0
+  fi
+  if [ "$GUIDED" = 1 ]; then
+    line "~/$rel" "$state"
+    while :; do
+      ask rsdq "[r]estore [s]kip [d]iff [q]uit"
+      [ "$REPLY" = d ] || break
+      { diff -u <(defaults export "$domain" - | plutil -convert xml1 -o - -) <(plutil -convert xml1 -o - "$src") \
+        || true; } | page
+    done
+    case "$REPLY" in
+      r) ;;
+      q) QUIT=1; return 0 ;;
+      *) return 0 ;;
+    esac
+  fi
+  if defaults import "$domain" "$src"; then
+    line "~/$rel" "imported ($state)"
+  else
+    FAILED+=("~/$rel (defaults import)")
+  fi
+}
+
+# dir_unit REL INDEX: one directory, merged into ~/REL file by file
+dir_unit() {
+  local rel=$1 idx=$2 src="$FROM/home/$1" dst="$HOME/$1" ck=-c out changes new changed state p
+  if in_list "${ITEM_GROUPS[$idx]}" "$BULK"; then ck=; fi
+  exclude_args "$rel"
+  protect_args "$rel"
+  if ! out=$(rsync -a -n -i ${ck:+"$ck"} ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst"); then
+    line "~/$rel" "failed to compare"
+    FAILED+=("~/$rel (rsync dry run)")
+    return 0
+  fi
+  changes=$(printf '%s\n' "$out" | grep -E '^(>f|cL)' || true)
+  read -r new changed <<<"$(printf '%s\n' "$changes" | awk 'NF { if (index($1, "+")) n++; else c++ } END { print n+0, c+0 }')"
+  if [ ! -d "$dst" ]; then
+    new=$((new + changed)) changed=0
+  fi
+  state=
+  if [ "$new" -gt 0 ]; then state="$new new"; fi
+  if [ "$changed" -gt 0 ]; then state="${state:+$state, }$changed changed"; fi
+  if [ "$((new + changed))" = 0 ]; then
+    state=same
+  elif [ "$((new + changed))" = 1 ]; then
+    state="$state file"
+  else
+    state="$state files"
+  fi
+  if [ "$GUIDED" = 0 ]; then
+    if [ "$PLAN" = 1 ] || [ "$state" = same ]; then
+      line "~/$rel" "$state"
+      if [ "$PLAN" = 0 ] && [ "$rel" = projects/ ]; then rm -f "$REPO_MARKER"; fi
+    else
+      # Before the copy: a bulk one takes a while
+      line "~/$rel" "restoring $state"
+      copy_dir "$rel" "$idx" "$ck" || line "" "failed (listed at the end)"
+    fi
+    return 0
+  fi
+
+  # Guided: the directory as a whole, or file by file (not for the bulk groups)
+  line "~/$rel" "$state"
+  if [ "$((new + changed))" -gt 0 ]; then
+    while :; do
+      if [ -n "$ck" ]; then
+        ask asflq "[a]ll [s]kip [f]ile by file [l]ist [q]uit"
+      else
+        ask aslq "[a]ll [s]kip [l]ist [q]uit"
+      fi
+      [ "$REPLY" = l ] || break
+      printf '%s\n' "$changes" | sed 's/^[^ ]* //' | page
+    done
+    case "$REPLY" in
+      a) if copy_dir "$rel" "$idx" "$ck"; then line "" restored; fi ;;
+      f)
+        while IFS= read -r p; do
+          [ "$QUIT" = 0 ] || break
+          file_unit "$rel${p#* }" "$idx"
+        done < <(printf '%s\n' "$changes" | grep '^>f')
+        ;;
+      q) QUIT=1 ;;
+    esac
+  fi
+}
+
+# do_unit REL INDEX: plan, ask about or restore ~/REL, which lies in manifest item INDEX
+do_unit() {
+  local rel=$1 idx=$2 link
+  [ -e "$FROM/home/$rel" ] || [ -L "$FROM/home/${rel%/}" ] || return 0
+  header "${ITEM_GROUPS[$idx]}"
+  if [ "${ITEM_GROUPS[$idx]}" = claude ] && [ "$PLAN" = 0 ]; then CLAUDE_DONE=1; fi
+  if link=$(linked_ancestor "$rel"); then
+    line "~/$rel" "kept: ~/$link is a symlink"
+    KEPT+=("~/$link")
+    return 0
+  fi
+  case "$rel" in
+    Library/Preferences/*.plist) plist_unit "$rel" "$idx" ;;
+    */) dir_unit "$rel" "$idx" ;;
+    *) file_unit "$rel" "$idx" ;;
+  esac
+}
+
+# mcp_state NAME: new, same or differs, comparing the backup's MCP server NAME with ~/.claude.json's (no values shown)
+mcp_state() {
+  [ -f "$HOME/.claude.json" ] || { echo new; return 0; }
+  jq -r --slurpfile m "$MCP_FILE" --arg n "$1" '(.mcpServers // {}) as $here
+    | if ($here | has($n)) | not then "new" elif $here[$n] == $m[0].mcpServers[$n] then "same" else "differs" end' \
+    "$HOME/.claude.json"
+}
+
+# mcp_merge NAME...: add these backed-up MCP servers to ~/.claude.json (same name: the backup wins)
+mcp_merge() {
+  local cj="$HOME/.claude.json" tmp
+  [ -f "$cj" ] || (umask 077 && echo '{}' >"$cj")
+  tmp=$(mktemp "$cj.XXXXXX")
+  if jq --slurpfile m "$MCP_FILE" \
+    '.mcpServers = ((.mcpServers // {}) + ($m[0].mcpServers | with_entries(select(.key | IN($ARGS.positional[])))))' \
+    "$cj" --args "$@" >"$tmp"; then
+    chmod 600 "$tmp"
+    mv "$tmp" "$cj"
+    return 0
+  fi
+  rm -f "$tmp"
+  FAILED+=("MCP servers $* (jq merge into ~/.claude.json)")
+  return 1
+}
+
+# mcp_unit INDEX FILTER: the backed-up MCP servers manifest item INDEX takes, all of them or (FILTER=picked) those
+# the mcp:NAME globs in --only match
+mcp_unit() {
+  local idx=$1 name g state picked i names=() states=()
+  [ -f "$MCP_FILE" ] || return 0
+  if ! command -v jq >/dev/null 2>&1; then
+    header "${ITEM_GROUPS[$idx]}"
+    FAILED+=("MCP servers (${ITEM_PATHS[$idx]}): jq not found")
+    return 0
+  fi
+  while IFS= read -r name; do
+    [ "$QUIT" = 0 ] || break
+    if [ "$2" = picked ]; then
+      picked=0
+      for g in "${SEL_MCP[@]}"; do
+        # shellcheck disable=SC2254
+        case "$name" in $g) picked=1 ;; esac
+      done
+      [ "$picked" = 1 ] || continue
+    fi
+    header "${ITEM_GROUPS[$idx]}"
+    if [ "${ITEM_GROUPS[$idx]}" = claude ] && [ "$PLAN" = 0 ]; then CLAUDE_DONE=1; fi
+    state=$(mcp_state "$name") || state="unreadable ~/.claude.json"
+    if [ "$PLAN" = 1 ] || [ "$state" = same ] || [ "$GUIDED" = 1 ]; then line "MCP server $name" "$state"; fi
+    if [ "$PLAN" = 1 ] || [ "$state" = same ]; then continue; fi
+    if [ "$GUIDED" = 1 ]; then
+      ask rsq "[r]estore [s]kip [q]uit"
+      case "$REPLY" in
+        q) QUIT=1; break ;;
+        s) continue ;;
+      esac
+    fi
+    names+=("$name")
+    states+=("$state")
+  done < <(mcp_names "$idx")
+  [ ${#names[@]} -gt 0 ] || return 0
+  if mcp_merge "${names[@]}"; then
+    for i in "${!names[@]}"; do
+      if [ "${states[$i]}" = new ]; then state=added; else state=replaced; fi
+      line "MCP server ${names[$i]}" "$state in ~/.claude.json"
+    done
+  fi
+}
+
+# expand_home <path>: turn a leading ~ or $HOME into the real home directory
+expand_home() {
+  case "$1" in
+    "~/"*) printf '%s\n' "$HOME/${1#"~/"}" ;;
+    '$HOME/'*) printf '%s\n' "$HOME/${1#'$HOME/'}" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+# check_claude: every file settings.json and CLAUDE.md point at exists (hooks, homedir's bin/agentic ones included;
+# status line, memory vault)
+check_claude() {
+  local s="$HOME/.claude/settings.json" p missing=0 refs
+  command -v jq >/dev/null 2>&1 || return 0
+  refs=$(
+    if [ -f "$s" ]; then
+      jq -r '[.hooks // {} | .. | objects | select(has("command")) | .command] + [.statusLine.command // empty]
+        | .[]' "$s" | grep -oE '(~|\$HOME|/Users/[^/ ]+)/[^ "'"'"']+' || true
+      jq -r '.autoMemoryDirectory // empty' "$s"
+    fi
+    if [ -f "$HOME/.claude/CLAUDE.md" ]; then sed -n 's/^@\([^[:space:]]*\).*/\1/p' "$HOME/.claude/CLAUDE.md"; fi
+  )
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    p=$(expand_home "$p")
+    [ -e "$p" ] || { echo "    missing: $p (named in ~/.claude/settings.json or CLAUDE.md)"; missing=1; }
+  done <<<"$(printf '%s\n' "$refs" | sort -u)"
+  if [ "$missing" = 0 ]; then echo "    Claude Code: hooks, status line, CLAUDE.md imports and memory dir all found"; fi
+}
+
+if [ "$PLAN" = 1 ]; then echo "Plan for $FROM (nothing is changed):"; fi
+for i in "${!ITEM_PATHS[@]}"; do
+  [ "$QUIT" = 0 ] || break
+  path=${ITEM_PATHS[$i]}
+  group=${ITEM_GROUPS[$i]}
+  if in_list "$group" "$SEL_GROUPS"; then
+    case "$path" in
+      mcp:*) mcp_unit "$i" all ;;
+      *) do_unit "$path" "$i" ;;
+    esac
+  fi
+  # Paths --only names inside this item (one in a protected repo, say), unless the item itself was just done
+  for j in ${SEL_OWNERS[@]+"${!SEL_OWNERS[@]}"}; do
+    [ "$QUIT" = 0 ] || break
+    [ "${SEL_OWNERS[$j]}" = "$i" ] || continue
+    if in_list "$group" "$SEL_GROUPS" && [ "${SEL_PATHS[$j]}" = "$path" ]; then continue; fi
+    do_unit "${SEL_PATHS[$j]}" "$i"
+  done
+  case "$path" in
+    mcp:*)
+      if ! in_list "$group" "$SEL_GROUPS" && [ ${#SEL_MCP[@]} -gt 0 ]; then mcp_unit "$i" picked; fi
+      ;;
+  esac
+done
+
+if [ "$CLAUDE_DONE" = 1 ]; then
+  echo "==> Claude Code references"
+  check_claude
+fi
+if [ ${#KEPT[@]} -gt 0 ]; then
+  echo ""
+  echo "Left alone (already a symlink or a repo here):"
+  printf '%s\n' "${KEPT[@]}" | sort -u | sed 's/^/    /'
+fi
+if [ ${#FAILED[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "Failed:" >&2
+  printf '    %s\n' "${FAILED[@]}" >&2
+  exit 1
+fi
+echo ""
+if [ "$PLAN" = 1 ]; then
+  echo "Nothing changed. Restore with --only GROUP|PATH,... or item by item with --guided; --all restores every group."
+elif [ "$QUIT" = 1 ]; then
+  echo "Stopped. What the lines above say was restored is back; run again for the rest."
+else
+  echo "Restore done from $FROM"
+fi

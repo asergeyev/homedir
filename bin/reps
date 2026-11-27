@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+while true; do
+  trap '' SIGINT
+  "$@"
+  trap - SIGINT
+  echo "Continue? (↵ or 3s) - (^C to stop)"
+  read -r -t 3
+done

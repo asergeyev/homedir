@@ -1,0 +1,21 @@
+# .zprofile-work — work-only shell settings. ~/.zprofile sources this file last, so what it sets wins.
+# install/04-bootstrap-host.sh sources it too, under bash with `set -u`: keep to VAR=value, export and alias lines.
+# homedir is public, so it ships only these comments; your real copy comes back from the backup with the secrets
+# (README step 2), before 04 installs the private Go tools it lists.
+# Likely candidates (uncomment and fill in):
+#
+# Private Go modules: fetched directly, skipping the public proxy and checksum database (pair each with an SSH
+# rewrite in ~/.config/git/config-work)
+# export GOPRIVATE="github.com/orgname/*,gitlab.company.example"
+#
+# A self-hosted GitLab whose TLS certificate Go can't verify
+# export GOINSECURE="gitlab.company.example"
+#
+# Private Go tools 04-bootstrap-host.sh installs once GOPRIVATE is set (space-separated `go install` targets)
+# GO_WORK_TOOLS="github.com/orgname/repo/cmd/tool@latest"
+#
+# A work CA for tools that take a file path (the dev VMs trust every *.crt in ~/.config/ca-certificates)
+# export GITLAB_CA_FILE="$HOME/.config/ca-certificates/work-ca.crt"
+#
+# Work-only aliases
+# alias tail-prod="aws logs tail /aws-ecs/service-prod --follow"

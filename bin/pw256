@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# pw256 — print a random 16-20 character password, then a ClickHouse CREATE USER that stores only its SHA-256.
+# Usage: pw256 [USER]
+set -euo pipefail
+
+len=$((16 + RANDOM % 5))
+password=$(head -c 32 /dev/urandom | base64 | cut -c "1-$len")
+echo "$password"
+sha=$(printf '%s' "$password" | shasum -a 256 | cut -d' ' -f1)
+# sha256_hash takes the hex digest; sha256_password would take the password itself
+echo "CREATE USER ${1:-...} IDENTIFIED WITH sha256_hash BY '$sha';"

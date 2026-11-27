@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# wt — one compact line per git worktree.
+# Usage: wt [-v]      (-v also lists changed file paths)
+set -uo pipefail
+
+verbose=0
+[ "${1:-}" = "-v" ] && verbose=1
+
+git rev-parse --git-dir >/dev/null 2>&1 || { echo "not a git repo"; exit 1; }
+
+# One stash serves every worktree, so each row counts only the entries made on its own branch.
+stashes=$(git stash list --format=%gs 2>/dev/null)
+
+# branch_stashes BRANCH prints how many stash entries were made on BRANCH ("WIP on B: ..." or "On B: ...").
+branch_stashes() {
+  printf '%s\n' "$stashes" | awk -v b="$1" \
+    'index($0, "WIP on " b ": ") == 1 || index($0, "On " b ": ") == 1 { n++ } END { print n + 0 }'
+}
+
+g() { git -C "$wt" "$@" 2>/dev/null; }
+
+# Each porcelain block becomes one line: path, short HEAD, branch, prunable reason (unit-separated, empty if none).
+git worktree list --porcelain | awk -v OFS=$'\x1f' '
+  /^worktree / { if (p != "") print p, h, b, r; p = substr($0, 10); h = b = r = "" }
+  /^HEAD /     { h = substr($0, 6, 7) }
+  /^branch /   { b = $0; sub(/^branch (refs\/heads\/)?/, "", b) }
+  /^prunable/  { r = substr($0, 10); if (r == "") r = "prunable" }
+  END          { if (p != "") print p, h, b, r }
+' | while IFS=$'\x1f' read -r wt head branch prunable; do
+  label=${branch:-"(detached $head)"}
+
+  # The directory is gone: git can't be asked about it, so say why instead.
+  if [ -n "$prunable" ]; then
+    printf '%-28s %-22s %-14s | %s\n' "${wt/#$HOME/~}" "$label" "prunable" "$prunable"
+    continue
+  fi
+
+  track=""
+  if g rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null; then
+    read -r behind ahead <<<"$(g rev-list --left-right --count '@{u}...HEAD')"
+    [ "${ahead:-0}" != 0 ] && track+=" ^$ahead"
+    [ "${behind:-0}" != 0 ] && track+=" v$behind"
+  else
+    track=" (no upstream)"
+  fi
+
+  porc=$(g status --porcelain=v1)
+  if [ -z "$porc" ]; then
+    dirty="clean"
+  else
+    staged=$(  printf '%s\n' "$porc" | grep -c '^[MARCD]' || true)
+    unstaged=$(printf '%s\n' "$porc" | grep -c '^.[MD]'   || true)
+    untr=$(    printf '%s\n' "$porc" | grep -c '^??'      || true)
+    dirty=""
+    [ "$staged"   -gt 0 ] && dirty+="+$staged "
+    [ "$unstaged" -gt 0 ] && dirty+="~$unstaged "
+    [ "$untr"     -gt 0 ] && dirty+="?$untr "
+    dirty=${dirty% }
+  fi
+
+  stash=""
+  if [ -n "$branch" ]; then
+    n=$(branch_stashes "$branch")
+    [ "$n" -gt 0 ] && stash=" stash:$n"
+  fi
+
+  printf '%-28s %-22s %-14s%s%s | %s\n' \
+    "${wt/#$HOME/~}" "$label" "$dirty" "$track" "$stash" \
+    "$(g log -1 --format='%h %s' | cut -c1-60)"
+
+  if [ "$verbose" = 1 ] && [ -n "$porc" ]; then
+    printf '%s\n' "$porc" | sed 's/^/      /'
+  fi
+done
+
+total=$(printf '%s' "$stashes" | grep -c . || true)
+[ "$total" -gt 0 ] && echo "shared stash: $total entries (rows count only their own branch's)"
+exit 0

@@ -1,4 +1,3 @@
-#!/bin/bash -x
-
-# Skip key auth for some ssh sessions
-exec /usr/bin/ssh -o PreferredAuthentications=keyboard-interactive -o PubkeyAuthentication=no $*
+#!/bin/bash
+# sshpw — ssh with keyboard-interactive (password) auth only, skipping keys, for hosts that need a password.
+exec /usr/bin/ssh -o PreferredAuthentications=keyboard-interactive -o PubkeyAuthentication=no "$@"

@@ -1,0 +1,14 @@
+asciidoctor.asciidoctor-vscode
+bierner.markdown-mermaid
+biomejs.biome
+bpruitt-goddard.mermaid-markdown-syntax-highlighting
+charliermarsh.ruff
+golang.go
+hashicorp.terraform
+ms-azuretools.vscode-containers
+ms-python.python
+pdconsec.vscode-print
+redhat.vscode-yaml
+samuelcolvin.jinjahtml
+teticio.python-envy
+typespec.typespec-vscode

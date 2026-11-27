@@ -1,0 +1,155 @@
+{
+  // Editor globals
+  "diffEditor.ignoreTrimWhitespace": true,
+  "diffEditor.renderSideBySide": false,
+  "docker.extension.dockerEngineAvailabilityPrompt": false,
+  "docker.extension.enableComposeLanguageServer": false,
+  "editor.accessibilitySupport": "off",
+  "editor.fontFamily": "Fira Code",
+  "editor.fontLigatures": true,
+  "editor.fontSize": 14,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
+  "editor.hover.enabled": "off",
+  "editor.rename.enablePreview": false,
+  "editor.wordWrap": "on",
+  "explorer.confirmDelete": false,
+  "outline.collapseItems": "alwaysCollapse",
+  "redhat.telemetry.enabled": false,
+  "search.useReplacePreview": false,
+  "terminal.integrated.copyOnSelection": true,
+  "terminal.integrated.gpuAcceleration": "off",
+  "terminal.integrated.mouseWheelScrollSensitivity": 3,
+  "terminal.integrated.showExitAlert": false,
+  "terminal.integrated.suggest.cdPath": "off",
+  "terminal.integrated.suggest.inlineSuggestion": "off",
+  "update.showReleaseNotes": false,
+  "window.commandCenter": false,
+  "window.confirmSaveUntitledWorkspace": false,
+  "window.openFoldersInNewWindow": "on",
+  "workbench.browser.showInTitleBar": false,
+  "workbench.colorTheme": "Dark+",
+  "workbench.layoutControl.enabled": false,
+  "workbench.navigationControl.enabled": false,
+  "workbench.secondarySideBar.showLabels": false,
+  "workbench.startupEditor": "none",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.ruff_cache": true,
+    "**/.terraform": true,
+    "**/.venv": true,
+    "**/.vscode": true,
+    "**/node_modules": true,
+    "**/venv": true
+  },
+  // --------- Language specific: Python (uv + Ruff)
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "python.defaultInterpreterPath": "python3",
+  "python.analysis.importFormat": "relative",
+  "python.venvPath": ".venv",
+  "python.venvFolders": [
+    ".venv"
+  ],
+  "python.createEnvironment.trigger": "off",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.languageServer": "Jedi",
+  "python.analysis.languageServerMode": "full",
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  "python.createEnvironment.contentButton": "show",
+  "ruff.configuration": "ruff.toml",
+  "ruff.organizeImports": true,
+  "ruff.lint.enable": true,
+  "ruff.enable": true,
+  // --------- Language specific: TS/JS
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  // --------- Language specific: Go
+  "[go]": {
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  "go.formatTool": "gofumpt",
+  "go.diagnostic.vulncheck": "Imports",
+  "go.lintTool": "golangci-lint-v2",
+  "go.lintFlags": [
+    "--disable=lll"
+  ],
+  "go.toolsManagement.autoUpdate": true,
+  "go.useLanguageServer": true,
+  "gopls": {
+    "staticcheck": false,
+    "analyses": {
+      "composites": false,
+      "stdversion": false,
+      "simplifycompositelit": false,
+      "structtag": false,
+      "lll": false
+    },
+    "gofumpt": true
+  },
+  "go.lintOnSave": "package",
+  "go.vetOnSave": "off",
+  "go.survey.prompt": false,
+  // --------- Language specific: SQL
+  "[sql]": {
+    "editor.formatOnSave": false
+  },
+  // --------- Language specific: Markdown
+  "[markdown]": {
+    "editor.unicodeHighlight.ambiguousCharacters": false,
+    "editor.unicodeHighlight.invisibleCharacters": false,
+    "diffEditor.ignoreTrimWhitespace": false,
+    "editor.wordWrap": "on",
+    "editor.wordWrapColumn": 90,
+    "editor.tabSize": 8,
+    "editor.indentSize": 8,
+    "editor.detectIndentation": false,
+    "editor.insertSpaces": true,
+    "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    }
+  },
+  "markdown.preview.doubleClickToSwitchToEditor": false,
+  "markdown.preview.scrollPreviewWithEditor": false,
+  // --------- Other globals
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "git.blame.ignoreWhitespace": true,
+  "git.blame.editorDecoration.enabled": true,
+  "git.blame.statusBarItem.enabled": true,
+  // AI
+  "claudeCode.preferredLocation": "sidebar",
+  // Copilot inline completions only in Go and TypeSpec; next-edit suggestions on, but rarely
+  "github.copilot.enable": {
+    "*": false,
+    "plaintext": false,
+    "markdown": false,
+    "scminput": false,
+    "typespec": true,
+    "go": true
+  },
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "github.copilot.nextEditSuggestions.eagerness": "low",
+  "github.copilot.chat.codesearch.enabled": true,
+  "github.copilot.chat.useProjectTemplates": false,
+  "yaml.customTags": [
+    "!reference sequence"
+  ]
+}
