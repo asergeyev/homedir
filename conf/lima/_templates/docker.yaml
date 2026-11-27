@@ -1,0 +1,12 @@
+# Rootless Docker VM sized for ClickHouse mask-trie dictionaries (24 GiB)
+# Create once:  limactl create --tty=false --name=docker template://docker
+# Start:        limactl start docker
+minimumLimaVersion: 1.1.0
+
+base:
+- template://docker-rootless
+
+vmType: vz
+cpus: 6
+memory: 24GiB
+disk: 60GiB

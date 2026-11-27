@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# vm-shim — run the command it is named after inside the `dev` VM (via bin/dev).
+# lib/link-vm-shims.sh symlinks ~/.local/bin/{aws,terraform,helm,...} here for CLIs the host lacks,
+# so scripts, make, hooks and Claude Code's Bash tool find them, not just interactive zsh.
+set -euo pipefail
+
+cmd=$(basename "$0")
+if [ "$cmd" = "vm-shim" ]; then
+  echo "usage: symlink a command name to vm-shim (see lib/link-vm-shims.sh), or run: dev <cmd> [args...]" >&2
+  exit 2
+fi
+exec dev "$cmd" "$@"

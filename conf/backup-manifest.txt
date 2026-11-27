@@ -1,0 +1,100 @@
+# backup-manifest.txt — what bin/homedir-backup copies and bin/homedir-restore puts back.
+# Paths are relative to $HOME and kept at the same place under <backup>/home/; a trailing / marks a directory.
+#   <group> <path>      copy it; groups: secrets work config claude apps vault projects personal (restore order)
+#   <group> mcp:<glob>  Claude Code MCP servers whose names match (the first matching line wins). They hold passwords,
+#                       so the backup saves them to <backup>/extra/ and the restore merges them into ~/.claude.json
+#   - <path>            skip this path inside a listed directory (rsync pattern)
+#   * <pattern>         skip this name at any depth (rsync pattern)
+# Every group is backed up and restored like the others (personal is just big); the backup's --omit-work and
+# --omit-personal leave one out, --omit-work with its MCP servers. secrets and work are restored owner-only (go-rwx).
+# The tool configs homedir copies in (conf/configs.txt) are listed too: the restore puts yours back over homedir's
+# copy, and bin/homedir-sync then compares them.
+
+* node_modules/
+* .venv/
+* venv/
+* .terraform/
+* .terragrunt-cache/
+* __pycache__/
+* .ruff_cache/
+* .turbo/
+* .DS_Store
+
+secrets .ssh/
+secrets .gnupg/
+# GitHub CLI login (holds its token)
+secrets .config/gh/
+# Package index URLs, which can carry credentials
+secrets .config/pip/pip.conf
+# Shell history can hold pasted tokens, so it goes with the secrets
+secrets .zsh_history
+# gpg-agent sockets
+- .gnupg/S.*
+
+# Work, restored with the secrets in README step 2: 04-bootstrap-host.sh installs the private Go tools .zprofile-work
+# lists, which needs its GOPRIVATE and config-work's SSH rewrites. A personal-only Mac leaves this group out.
+work .aws/
+work .kube/
+work .s3cfg
+work .zprofile-work
+work .config/git/config-work
+# CA certificates (PEM, *.crt) for host tools that take a path and for the dev VMs' trust store
+work .config/ca-certificates/
+# GitLab CLI login (holds its token)
+work .config/glab-cli/
+work Library/Application Support/Viscosity/
+work Library/Application Support/Insomnia/
+- Library/Application Support/Insomnia/Cache/
+- Library/Application Support/Insomnia/Code Cache/
+- Library/Application Support/Insomnia/GPUCache/
+- Library/Application Support/Insomnia/DawnGraphiteCache/
+- Library/Application Support/Insomnia/DawnWebGPUCache/
+# The ClickHouse MCP servers
+work mcp:mcp-clickhouse*
+
+config .zprofile
+config .zshrc
+config .config/alexs.conf
+config .config/git/
+config .config/wireshark/
+config .config/zed/
+config .config/mc/
+config .config/mise/
+# OrbStack's Docker engine config (docker.json); its machines and images are rebuilt, never backed up
+config .orbstack/config/
+
+claude .claude/CLAUDE.md
+claude .claude/settings.json
+claude .claude/statusline-command.sh
+claude .claude/keybindings.json
+claude .claude/hooks/
+claude .claude/skills/
+claude .claude/commands/
+# Hook counters, and skills claude.ai syncs back by itself
+- .claude/hooks/state/
+- .claude/skills/synced/
+# Every other MCP server
+claude mcp:*
+
+apps Library/Application Support/xbar/plugins/
+apps Library/Application Support/Code/User/settings.json
+apps Library/Application Support/Code/User/keybindings.json
+apps Library/Application Support/Code/User/snippets/
+# A Library/Preferences plist goes through `defaults export` / `defaults import`, not a file copy
+apps Library/Preferences/com.googlecode.iterm2.plist
+# macOS keyboard shortcuts (Mission Control, Spotlight, ⌘1–⌘4 desktop switching), the Dock (apps, size, auto-hide,
+# hot corners, Spaces order) and input sources; desktops are per-Mac, so install/02-add-desktops.sh adds them
+apps Library/Preferences/com.apple.symbolichotkeys.plist
+apps Library/Preferences/com.apple.dock.plist
+apps Library/Preferences/com.apple.HIToolbox.plist
+apps Library/Application Support/iTerm2/
+
+vault Documents/Obsidian/
+
+projects projects/
+
+personal Documents/
+personal Desktop/
+personal Downloads/
+# Already in the vault group
+- Documents/Obsidian/

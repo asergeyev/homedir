@@ -1,0 +1,16 @@
+# config-work — work-only git settings. ~/.config/git/config includes this file last, so what it sets wins.
+# homedir is public, so it ships only these comments; your real copy comes back from the backup with the secrets
+# (README step 2), before the bootstrap's `go install` of private modules needs its SSH rewrites.
+# Likely candidates (uncomment and fill in):
+#
+# A work identity for every repo (the `cb` alias names branches after the part of user.email before the @)
+# [user]
+# 	email = you@company.example
+#
+# A private GitHub org over SSH, so https clone URLs and `go get` (with GOPRIVATE) use your SSH key
+# [url "git@github.com:orgname/"]
+# 	insteadOf = https://github.com/orgname/
+#
+# A self-hosted GitLab over SSH
+# [url "git@gitlab.company.example:"]
+# 	insteadOf = https://gitlab.company.example/

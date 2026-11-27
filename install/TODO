@@ -1,3 +1,0 @@
-restore bashlocal and .local
-
-CHANGE order of ops. Brew should go first and MAS last, more prefs to brew mas than to mas itself.

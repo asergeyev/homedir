@@ -1,49 +1,68 @@
 [user]
 	name = Alex Sergeyev
-	email = asergeyev@fastly.com
-	signingkey = 21DE8F6F
+	email = abc@alexsergeyev.com
 
 [push]
 	default = current
 
 [pull]
 	default = current
-	ff = only
-
-[core]
-	excludesfile = ~/.config/git/ignore
-
-[url "ssh://git@github.com:"]
-	insteadOf="https://github.com"
+	rebase = true
 
 [alias]
-	b=branch --sort=-committerdate
-	bD=branch -D
-	bM=branch -M
-	bm=branch --merged --sort=-committerdate
-	bn=branch --no-merged --sort=-committerdate
-	bg=! git branch --sort=-committerdate | grep
-	c=checkout
-	cb=checkout -b
-	ff=fork
-	main=!git fetch --prune && git checkout main && git up
-	sandbox=!git fetch --prune && git checkout sandbox && git up
-	fetch=fetch --prune
-	l=log --oneline
-	push-force=push --force-with-lease
-	s=st
-	status=st
-	statys=st
+	b = branch --sort=-committerdate
+	bD = branch -d
+	bM = branch -m
+	bg = ! git branch --sort=-committerdate | grep
+	c = checkout
+	main-branch = !git symbolic-ref refs/remotes/origin/HEAD | cut -d'/' -f4
+	remotesh = remote set-head origin --auto
+	main = "!git fetch --prune && git checkout -m $(git main-branch) && git remote set-head origin --auto && git upm $@"
+	upm = "!git pull --rebase --autostash origin $(git main-branch) $@"
+	rebasem = "!git rebase -i --autostash origin/$(git main-branch) $@"
+	cb = "!f() { git checkout -b \"$(git config user.email | cut -d@ -f1)-$(date +%Y%m%d)-$(echo $@ | tr ' ' '-' | tr [:upper:] [:lower:])\"; }; f"
+	master = main
+	fetch = fetch --prune
+	l = log --oneline --graph --decorate
+	push-force = push --force-with-lease
+	s = st
+	status = st
+	statys = st
+	diff = diff -w
 
-[user]
-	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG+2DIN/tL0alOybIzQMlmrGI6ejCHxROGH9M0vBo2Vi
+[color "branch"]
+	current = green
+	local = normal
+	remote = cyan
+	worktree = magenta
 
-[gpg]
-	format = ssh
+[color "status"]
+	added = yellow
+	changed = red
+	untracked = cyan
 
-[gpg "ssh"]
-	program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+[core]
+	excludesFile = ~/.config/git/ignore
+	pager = delta
 
-[commit]
-	gpgsign = true
+[interactive]
+	diffFilter = delta --color-only
 
+[delta]
+	navigate = true
+	dark = true
+
+[blame]
+	ignoreRevsFile = ~/.config/git/ignore-revs
+
+[merge]
+	conflictstyle = zdiff3
+
+[init]
+	defaultBranch = main
+
+# Work settings (a work [user], SSH rewrites for private orgs) live in config-work: a commented template in homedir,
+# your own copy from the backup. Included last, so what it sets wins; a ~ path, so it still resolves when git reads
+# this file through a ~/.gitconfig symlink.
+[include]
+	path = ~/.config/git/config-work

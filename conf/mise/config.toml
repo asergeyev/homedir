@@ -1,0 +1,23 @@
+[tools]
+# Languages & package managers (uv manages Python versions/venvs separately)
+# Go is always the latest 1.x, never a pinned minor or patch
+go = "1"
+node = "24"
+pnpm = "latest"
+uv = "latest"
+
+# Core host CLIs
+delta = "latest"
+gh = "latest"
+glab = "latest"
+jq = "latest"
+ripgrep = "latest"
+yq = "latest"
+"github:oasdiff/oasdiff" = { version = "latest", asset_pattern = "oasdiff_*_darwin_all.tar.gz" }
+"conda:mc" = "latest"
+
+[settings]
+# `go install` goes to ~/go/bin (on PATH in .zprofile), not into the per-version Go dir a Go upgrade drops
+go.set_gobin = false
+# Not python (uv reads .python-version) or terraform (it lives in the dev VM; a host copy would shadow the vm-shim)
+idiomatic_version_file_enable_tools = ["node"]
