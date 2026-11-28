@@ -1,8 +1,8 @@
 #!/bin/sh
+# git-deltag TAG — delete TAG here and on every remote.
 
-# KILL particular tag locally and on all remote origins
-
-git tag -d $1
-for origin in $(git remote | xargs); do
-    git push $origin :refs/tags/$1
+tag=${1:?usage: git-deltag TAG}
+git tag -d "$tag"
+for remote in $(git remote); do
+  git push "$remote" ":refs/tags/$tag"
 done

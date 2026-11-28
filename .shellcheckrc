@@ -1,0 +1,5 @@
+# ~ in quotes is shown to the user, never expanded; single quotes hold jq, awk and perl programs
+disable=SC2088,SC2016
+# Follow what a script sources, relative to the script
+external-sources=true
+source-path=SCRIPTDIR

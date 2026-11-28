@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
+# reps CMD [ARG...] — run CMD over and over: again after Enter or 3 s, until ^C while it waits. ^C during a run does
+# nothing, to CMD either (it inherits the ignore), unless CMD handles ^C itself.
 
+[ $# -gt 0 ] || { echo "usage: reps CMD [ARG...]" >&2; exit 2; }
 while true; do
-  trap '' SIGINT
+  trap '' INT
   "$@"
-  trap - SIGINT
+  trap - INT
   echo "Continue? (↵ or 3s) - (^C to stop)"
   read -r -t 3
 done

@@ -70,11 +70,11 @@ REPO_MARKER="$HOME/.local/state/homedir/protected-repos"
 LOGIN_HOME=$(dscl -plist . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null \
   | plutil -extract dsAttrTypeStandard:NFSHomeDirectory.0 raw -o - - 2>/dev/null) || LOGIN_HOME=
 if [ -z "$LOGIN_HOME" ]; then
-  PREFS=unknown
+  PREFS='unknown'
 elif [ "$(cd "$HOME" && pwd -P)" = "$(cd "$LOGIN_HOME" 2>/dev/null && pwd -P)" ]; then
-  PREFS=defaults
+  PREFS='defaults'
 else
-  PREFS=file
+  PREFS='file'
   echo "Note: ~ is not $(id -un)'s login home, so Library/Preferences plists are restored as plain files"
 fi
 # Bulk groups compare files by size and time; the rest by content (rsync -c), exact but reading every file
@@ -142,7 +142,7 @@ to_rel() {
 # owner REL: print the index of the manifest item REL lies in; the longest wins (.config/git/config-work over
 # .config/git/)
 owner() {
-  local rel=$1 i p best= len=0
+  local rel=$1 i p best='' len=0
   for i in "${!ITEM_PATHS[@]}"; do
     p=${ITEM_PATHS[$i]}
     case "$p" in mcp:*) continue ;; esac
@@ -197,7 +197,7 @@ select_path() {
 }
 
 # Selection: groups, paths (each with its manifest item) and MCP server globs
-SEL_GROUPS= SEL_PATHS=() SEL_OWNERS=() SEL_MCP=()
+SEL_GROUPS='' SEL_PATHS=() SEL_OWNERS=() SEL_MCP=()
 if [ -n "$ONLY" ]; then
   IFS=, read -ra tokens <<<"$ONLY"
   for t in ${tokens[@]+"${tokens[@]}"}; do
@@ -255,6 +255,7 @@ exclude_args() {
 
 # exclude_literal PATH: add to EXARGS an rsync exclude that matches PATH only. rsync reads a pattern holding * ? or [
 # as a wildcard one, where those and \ need a \ in front (foo[1] alone would match foo1)
+# shellcheck disable=SC1003,SC1087 # b is a lone \, and $b[ is no array
 exclude_literal() {
   local s=$1 b='\'
   case "$s" in

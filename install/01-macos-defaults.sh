@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 01-macos-defaults.sh — macOS preferences: key repeat speed and delay, mouse pointer speed and size, ⌘' for Writing
 # Tools (all as on the old Mac), all file extensions shown, no .DS_Store files on network shares, screenshots in
-# ~/Pictures/Screenshots, ~/projects in the Finder sidebar. Safe to re-run.
+# ~/Pictures/Screenshots, ~/projects in the Finder sidebar. Turns the firewall on (asking for an admin password when
+# it's off) and says whether FileVault is off. Safe to re-run.
 set -euo pipefail
 
 echo "==> Keyboard: fast key repeat, ⌘' for Show Writing Tools (apply after logging out and back in)..."
@@ -51,6 +52,21 @@ guard let last = items.last,
 else { exit(1) }
 print("    added \(target)")
 EOF
+
+echo "==> Security: the firewall on, FileVault checked..."
+FW=/usr/libexec/ApplicationFirewall/socketfilterfw
+case "$("$FW" --getglobalstate 2>&1)" in
+  *disabled*)
+    sudo "$FW" --setglobalstate on >/dev/null ||
+      echo "    could not turn the firewall on: System Settings > Network > Firewall"
+    ;;
+esac
+echo "    $("$FW" --getglobalstate 2>&1)"
+fv=$(fdesetup status 2>&1 || true)
+echo "    ${fv%%$'\n'*}"
+case "$fv" in
+  *"FileVault is Off"*) echo "    Turn it on: System Settings > Privacy & Security > FileVault" ;;
+esac
 
 # Restart what reads these settings now; the keyboard ones wait for a logout
 killall Finder SystemUIServer Dock 2>/dev/null || true

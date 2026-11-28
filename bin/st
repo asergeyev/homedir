@@ -1,13 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# st — `git status --porcelain` of every repo directly under ~/projects, each path prefixed with its repo's name.
+set -u
 
-esc=$(printf '\033')
-
-cd ~/projects
-
-for d in `ls -d */.git`; do
-    cd $d/..
-    WD=$(basename $(pwd))
-    # Prefix the last path on each porcelain line with the repo dir (BSD/GNU awk, no gsed)
-    git status --porcelain | awk -v wd="$WD" '{ if (match($0, / [^[:space:]]+$/)) $0 = substr($0, 1, RSTART) wd "/" substr($0, RSTART + 1); print }'
-    cd ..
+for gitdir in "$HOME"/projects/*/.git; do
+  [ -e "$gitdir" ] || continue
+  repo=${gitdir%/.git}
+  # Prefix the last path on each line with the repo's name (BSD awk has no gensub)
+  git -C "$repo" status --porcelain | awk -v wd="${repo##*/}" '
+    match($0, / [^[:space:]]+$/) { $0 = substr($0, 1, RSTART) wd "/" substr($0, RSTART + 1) }
+    { print }'
 done

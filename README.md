@@ -4,7 +4,7 @@ Workstation setup for Apple Silicon macOS with **zero Homebrew**, applied by rei
 
 - **Host macOS:**
   - Xcode Command Line Tools (`git`, `make`, `ssh`, `curl`)
-  - [`mise`](https://mise.jdx.dev/) for runtimes and core CLIs: `go` (latest 1.x), `node`, `pnpm`, `uv`, `jq`, `yq`, `gh`, `glab`, `rg`, `delta`, `oasdiff`, `mc` (Midnight Commander, from conda-forge)
+  - [`mise`](https://mise.jdx.dev/) for runtimes and core CLIs: `go` (latest 1.x), `node`, `pnpm`, `uv`, `jq`, `yq`, `gh`, `glab`, `rg`, `delta`, `oasdiff`, `shellcheck`, `mc` (Midnight Commander, from conda-forge)
   - `uv`-managed Python: the newest is the default `python3`/`python` in `~/.local/bin`, with 3.12 alongside for irregular CA clients
   - Go tools in `~/go/bin` (`gopls`, `gofumpt`, `golangci-lint-v2`, `dlv`, `garble`, `protoc-gen-go`, `docker-credential-ecr-login`, plus the private ones your `~/.zprofile-work` lists)
   - OrbStack for `docker`, `docker compose`, `docker buildx` and the Linux machines below, with one 20 GB memory limit for all of them, not started at login. Docker's `credsStore` is `ecr-login`, so ECR images pull with your `AWS_PROFILE`; other registries pull anonymously.
@@ -80,7 +80,8 @@ git clone git@github.com:asergeyev/homedir.git ~/projects/homedir
 cd ~/projects/homedir
 
 # macOS preferences: key repeat speed and delay, mouse pointer speed and size, ⌘' for Writing Tools, file extensions,
-# the screenshot folder, ~/projects in the Finder sidebar
+# the screenshot folder, ~/projects in the Finder sidebar; the firewall on (asks for an admin password) and a FileVault
+# check
 ./install/01-macos-defaults.sh
 
 # 4 desktops on the main display, for the ⌘1–⌘4 shortcuts step 4 restores: clicks "+" in Mission Control, so macOS
@@ -187,7 +188,7 @@ On the old Mac, from this checkout:
    mkdir -p /Volumes/<Drive>/reinstall.$(date +%F)
    ln -sfn /Volumes/<Drive>/reinstall.$(date +%F) ~/BACKUP_FOLDER
    ```
-2. Optional: copy the config changes you want to keep into homedir's `conf/`, so the new Mac starts from them. Commit them on a branch and get them to `main` (step 4):
+2. Optional: copy the config changes you want to keep into homedir's `conf/`, so the new Mac starts from them. Commit them on a branch and get them to `main` (step 5):
    ```sh
    # See which configs differ from homedir's, and how
    ./bin/homedir-sync --diff
@@ -200,15 +201,21 @@ On the old Mac, from this checkout:
    # --omit-work or --omit-personal leaves that group out
    ./bin/homedir-backup
    ```
-4. Review `~/BACKUP_FOLDER/git-report/summary.txt` and push any branches you want in origin before wiping. homedir's own changes must be on its default branch on GitHub, because reinstall step 2 clones that.
-5. Leave the Time Machine backup untouched as an emergency fallback.
+4. Check the copy. Without options the restore only shows its plan, comparing what the backup holds with this Mac, so right after the backup every item should say `same`. One that doesn't was copied badly, unless you used it since (shell history, Claude Code). The plan can't see a file or item that never reached the backup, compares the vault, projects and personal groups only by size and time, and skips repos in `~/projects` and symlinks, which the restore leaves alone.
+   ```sh
+   # Compare the backup with this Mac; changes nothing
+   ./bin/homedir-restore
+   ```
+5. Review `~/BACKUP_FOLDER/git-report/summary.txt` and push any branches you want in origin before wiping. Under each repo, `commits on no remote` lists the commits no remote branch had at your last fetch, a detached HEAD's included (the backup also names those repos as it runs). homedir's own changes must be on its default branch on GitHub, because reinstall step 2 clones that.
+6. Leave the Time Machine backup untouched as an emergency fallback.
 
 ## Keeping the Mac lean
 
 1. **One tool per category:** OrbStack only (no Rancher Desktop, Colima, Podman, or Lima alongside it); `mise` + `uv` only (no Brew, `nvm`, `pyenv`, `rbenv`, `tfenv`); Insomnia only (no Bruno, Postman, Scalar).
 2. **Keep host `mise` lean:** heavy or rarely used infra CLIs live in the `dev` machine ([`conf/orbstack/provision-dev.sh`](conf/orbstack/provision-dev.sh)), which can be wiped and rebuilt.
-3. **Periodic cleanup:** `homedir-prune` prunes `mise`, `uv` (skipped while something runs uv, as Claude Code's MCP servers do), Go build and test caches, Docker and old Claude Code CLI binaries, and lists the OrbStack and Lima machines with the disk each uses.
-4. **Skip vendor updater daemons:** Adobe Creative Cloud, Canon EOS Webcam Utility, JetBrains Toolbox and WiFiman, unless actively needed.
+3. **Periodic upgrades:** `./install/04-bootstrap-host.sh --upgrade` brings mise and its tools, the uv Pythons' patch releases, the ClickHouse client, the Go tools and the `claude` and `agy` CLIs to their newest versions. Run `homedir-prune` afterwards.
+4. **Periodic cleanup:** `homedir-prune` prunes `mise`, `uv` (skipped while something runs uv, as Claude Code's MCP servers do), Go build and test caches, Docker and old Claude Code CLI binaries, and lists the OrbStack and Lima machines with the disk each uses.
+5. **Skip vendor updater daemons:** Adobe Creative Cloud, Canon EOS Webcam Utility, JetBrains Toolbox and WiFiman, unless actively needed.
 
 ## Rolling back to Lima
 

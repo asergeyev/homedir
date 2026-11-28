@@ -1,0 +1,21 @@
+# Lint every shell script and test backup and restore on a fixture (test/check.sh), on macOS like the scripts
+name: check
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install shellcheck
+        run: |
+          # The release binary, not the runner's Homebrew, as on the Macs this repo sets up
+          url=https://github.com/koalaman/shellcheck/releases/download/v0.11.0
+          curl -fsSL "$url/shellcheck-v0.11.0.darwin.aarch64.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/shellcheck-v0.11.0" >>"$GITHUB_PATH"
+      - name: test/check.sh
+        run: test/check.sh

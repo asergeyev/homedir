@@ -71,11 +71,11 @@ FAILED=()
 LOGIN_HOME=$(dscl -plist . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null \
   | plutil -extract dsAttrTypeStandard:NFSHomeDirectory.0 raw -o - - 2>/dev/null) || LOGIN_HOME=
 if [ -z "$LOGIN_HOME" ]; then
-  PREFS=unknown
+  PREFS='unknown'
 elif [ "$(cd "$HOME" && pwd -P)" = "$(cd "$LOGIN_HOME" 2>/dev/null && pwd -P)" ]; then
-  PREFS=defaults
+  PREFS='defaults'
 else
-  PREFS=file
+  PREFS='file'
   echo "Note: ~ is not $(id -un)'s login home, so Library/Preferences plists are copied as plain files"
 fi
 
@@ -176,7 +176,7 @@ backup_item() {
   esac
 }
 
-echo "==> git report: branches, status, stashes and diffs of each repo and worktree in ~/projects"
+echo "==> git report: branches, status, stashes, unpushed commits and diffs of each repo and worktree in ~/projects"
 mkdir -p "$REAL_DEST/git-report"
 REPORT="$REAL_DEST/git-report/summary.txt"
 : >"$REPORT"
@@ -184,14 +184,26 @@ REPORT="$REAL_DEST/git-report/summary.txt"
 { find "$HOME/projects" -maxdepth 3 -name .git 2>/dev/null || true; } | sort | while IFS= read -r gitdir; do
   repo=$(dirname "$gitdir")
   rel=${repo#"$HOME/projects/"}
+  # Commits no remote has: on a branch never pushed or ahead of its upstream, or on a detached HEAD. Worktrees share
+  # their repo's branches, which the repo's own checkout (a .git directory) lists; a worktree adds its HEAD's only
+  unpushed=
+  if [ -z "$(git -C "$repo" remote 2>/dev/null)" ]; then
+    if [ -d "$gitdir" ]; then unpushed="(no remote: every commit is only here)"; fi
+  elif [ -d "$gitdir" ]; then
+    unpushed=$(git -C "$repo" log HEAD --branches --not --remotes --format='%h%d %s' 2>/dev/null || true)
+  else
+    unpushed=$(git -C "$repo" log HEAD --not --branches --remotes --format='%h%d %s' 2>/dev/null || true)
+  fi
   {
     echo "=== $rel ==="
     git -C "$repo" branch -vv 2>&1 || true
     git -C "$repo" status -s 2>&1 || true
     stashes=$(git -C "$repo" stash list 2>/dev/null || true)
     [ -n "$stashes" ] && printf -- '-- stashes --\n%s\n' "$stashes"
+    [ -n "$unpushed" ] && printf -- '-- commits on no remote --\n%s\n' "$unpushed"
     echo ""
   } >>"$REPORT"
+  if [ -n "$unpushed" ]; then echo "    $rel: commits on no remote"; fi
   safe_name=$(printf '%s' "$rel" | tr '/' '_')
   for kind in unstaged staged; do
     out="$REAL_DEST/git-report/$safe_name.$kind.diff"
@@ -201,7 +213,7 @@ REPORT="$REAL_DEST/git-report/summary.txt"
   done
 done
 
-LAST_GROUP= LEFT_OUT= LEFTOVER=()
+LAST_GROUP='' LEFT_OUT='' LEFTOVER=()
 for i in "${!ITEM_PATHS[@]}"; do
   group=${ITEM_GROUPS[$i]} path=${ITEM_PATHS[$i]}
   if omitted "$group"; then

@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+# guided.exp SCRIPT HOME FROM PAGER ONLY MODE: run SCRIPT --guided; at a directory prompt MODE list sends [l]ist
+# then [s]kip, MODE file sends [f]ile by file; every file prompt gets [r]estore, the symlink "link" a [d]iff first
+set timeout 30
+lassign $argv script home from pager only mode
+set env(TERM) xterm-256color
+set env(HOME) $home
+set env(PAGER) $pager
+spawn $script --from $from --only $only --guided
+set listed 0
+expect {
+  -re {\[a\]ll} {
+    sleep 0.3
+    if {$mode eq "list" && !$listed} {
+      set listed 1
+      send "l\r"
+    } elseif {$mode eq "list"} {
+      send "s\r"
+    } else {
+      send "f\r"
+    }
+    exp_continue
+  }
+  -re {mc/link +new\r\n +\[r\]estore[^:]*: } { sleep 0.3; send "d\r"; exp_continue }
+  -re {\[r\]estore} { sleep 0.3; send "r\r"; exp_continue }
+  timeout { puts "\n### TIMEOUT"; exit 3 }
+  eof
+}
+lassign [wait] pid spawnid oserr rc
+puts "\n### exit $rc"
