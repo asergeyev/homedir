@@ -4,8 +4,9 @@
 # ClickHouse client, Claude Code and Antigravity CLIs, Go dev tools (gopls, gofumpt, golangci-lint-v2, dlv, garble,
 # protoc-gen-go, docker-credential-ecr-login, plus the private ones ~/.zprofile-work lists), and Fira Code font.
 # (Docker CLI, compose, and buildx come bundled with OrbStack.app.)
-# --upgrade also brings what is already installed to its newest version: mise and its tools, the uv Pythons' patch
-# releases, the ClickHouse client and the two CLIs. The Go tools always reinstall at @latest.
+# --upgrade (what homedir-upgrade runs) also brings what is already installed to its newest version: mise and its
+# tools, the uv Pythons' patch releases, the ClickHouse client and the two CLIs. The Go tools always reinstall at
+# @latest.
 set -euo pipefail
 
 UPGRADE=0

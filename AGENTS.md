@@ -7,7 +7,7 @@ A personal Mac setup. README.md is the user guide and each script's header says 
 ## Map
 
 - `install/` — setup steps, run in number order; 90 is the Lima fallback.
-- `bin/` — tools 03 links into `~/.local/bin`; `homedir-*` back up, restore, sync configs and prune.
+- `bin/` — tools 03 links into `~/.local/bin`; `homedir-*` back up, restore, sync configs, upgrade and prune.
 - `bin/agentic/` — Claude Code Bash hooks, linked into `~/.claude/hooks` and wired by path in `~/.claude/settings.json`. Warn-only and run on every Bash call, so keep them fast.
 - `conf/` — tool configs; `configs.txt` lists what 03 copies into `~`, `backup-manifest.txt` what backup and restore copy, `review-configs.md` is the prompt that has Claude Code compare them all with `~`.
 - `lib/` — helpers for the install scripts.
@@ -23,7 +23,7 @@ A personal Mac setup. README.md is the user guide and each script's header says 
 
 ## Testing
 
-- Never execute 01, 02, 04–10, 90 or `homedir-prune`: whatever `$HOME` is, they change the real preferences, apps, OrbStack and caches.
+- Never execute 01, 02, 04–10, 90, `homedir-upgrade` (runs 04) or `homedir-prune`: whatever `$HOME` is, they change the real preferences, apps, OrbStack and caches.
 - `test/check.sh` after changing any script: it must end with "All passed". A new behaviour of the backup or restore gets its check there, and an odd file it must handle goes into `make-fixture.sh`.
 - Backup and restore by hand: `test/make-fixture.sh [DIR]` builds a fake old home, its backup and a new home, and prints the restore command. Run both only with `HOME` set to a fixture home, never on the real `~` or `~/BACKUP_FOLDER`. Under a HOME other than the login one, plists are plain files, so `defaults` never touches the real preferences.
 - 03 and `homedir-sync` also run only with a scratch `HOME` when testing them; the config review (`conf/review-configs.md`) runs `homedir-sync` on the real `~` by design.

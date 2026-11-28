@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# homedir-upgrade — periodic upgrade of the host toolchain: runs install/04-bootstrap-host.sh --upgrade (mise and its
+# tools, the uv Pythons' patch releases, the ClickHouse client, the Go tools, the claude and agy CLIs). Run
+# homedir-prune afterwards.
+set -euo pipefail
+
+[ $# = 0 ] || { echo "Usage: $(basename "$0")" >&2; exit 2; }
+# Through the ~/.local/bin link 03 makes, so the repo is where the link points
+SRC="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+exec "$SRC/install/04-bootstrap-host.sh" --upgrade

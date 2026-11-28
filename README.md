@@ -213,7 +213,7 @@ On the old Mac, from this checkout:
 
 1. **One tool per category:** OrbStack only (no Rancher Desktop, Colima, Podman, or Lima alongside it); `mise` + `uv` only (no Brew, `nvm`, `pyenv`, `rbenv`, `tfenv`); Insomnia only (no Bruno, Postman, Scalar).
 2. **Keep host `mise` lean:** heavy or rarely used infra CLIs live in the `dev` machine ([`conf/orbstack/provision-dev.sh`](conf/orbstack/provision-dev.sh)), which can be wiped and rebuilt.
-3. **Periodic upgrades:** `./install/04-bootstrap-host.sh --upgrade` brings mise and its tools, the uv Pythons' patch releases, the ClickHouse client, the Go tools and the `claude` and `agy` CLIs to their newest versions. Run `homedir-prune` afterwards.
+3. **Periodic upgrades:** `homedir-upgrade` (`./install/04-bootstrap-host.sh --upgrade`) brings mise and its tools, the uv Pythons' patch releases, the ClickHouse client, the Go tools and the `claude` and `agy` CLIs to their newest versions. Run `homedir-prune` afterwards.
 4. **Periodic cleanup:** `homedir-prune` prunes `mise`, `uv` (skipped while something runs uv, as Claude Code's MCP servers do), Go build and test caches, Docker and old Claude Code CLI binaries, and lists the OrbStack and Lima machines with the disk each uses.
 5. **Skip vendor updater daemons:** Adobe Creative Cloud, Canon EOS Webcam Utility, JetBrains Toolbox and WiFiman, unless actively needed.
 
