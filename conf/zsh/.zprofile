@@ -1,7 +1,9 @@
 # Non-interactive & login shell environment (VS Code, hooks, xbar, etc.)
 
 # mise shims let non-interactive tools (VS Code, xbar, Claude hooks) find go, node, pnpm, uv, etc.
-export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/go/bin:$PATH"
+# PNPM_HOME holds what `pnpm add -g` installs, with its commands in bin/
+export PNPM_HOME="$HOME/Library/pnpm"
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$HOME/go/bin:$PNPM_HOME/bin:$PATH"
 
 # OrbStack's command-line tools and completions (its own line; harmless before OrbStack is installed)
 source ~/.orbstack/shell/init.zsh 2>/dev/null || :

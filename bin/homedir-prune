@@ -6,7 +6,11 @@ echo "==> Pruning mise unused versions..."
 command -v mise >/dev/null 2>&1 && mise prune --yes || true
 
 echo "==> Pruning uv cache..."
-command -v uv >/dev/null 2>&1 && uv cache prune --ci || true
+# A running `uv run` (Claude Code's MCP servers) holds the cache: prune waits until it exits, and --force would delete
+# the environment it runs from. So give up after 10 s
+if command -v uv >/dev/null 2>&1 && ! UV_LOCK_TIMEOUT=10 uv cache prune --ci; then
+  echo "    Skipped: re-run once nothing runs uv (quit Claude Code, whose MCP servers do)"
+fi
 
 echo "==> Cleaning Go build & test caches..."
 command -v go >/dev/null 2>&1 && go clean -cache -testcache || true
@@ -23,42 +27,23 @@ if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   docker system prune -f
 fi
 
-# Recreating a Linux machine reclaims what the prunes can't (apt leftovers, old tool versions, VM data): only
-# suggest it, for the machines that exist. Never `orb -m` or `limactl shell` here: they start a stopped machine.
-suggest_recreate() {
-  local src del setup list name size names="" cmds="" loss="VM-home files not linked to the Mac" note=""
-  src="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-  if command -v orb >/dev/null 2>&1; then
-    # `orbctl status` never starts OrbStack; `orbctl list` may
-    if ! orbctl status >/dev/null 2>&1; then
-      echo "==> OrbStack isn't running: skipping the hint to recreate its Linux machines."
-      return 0
-    fi
-    # "<name> <disk usage>": only the text listing has the size ("2.7 GB", decimal), stopped machines included
-    list=$(orbctl list 2>/dev/null | awk '{ s = $0 " " } match(s, / [0-9.]+ [kKMGT]?B /) {
-      print $1, substr(s, RSTART + 1, RLENGTH - 2); next } { print $1 }') || true
-    del="orbctl delete" setup="$src/install/10-setup-orbstack.sh"
-    note=" 10 sets up both machines and stops clickhouse."
-  elif command -v limactl >/dev/null 2>&1; then
-    # "<name> <disk usage>": the blocks the sparse VM disk really holds
-    list=$(limactl list --json 2>/dev/null | jq -r '.name + " " + .dir' 2>/dev/null | while read -r name dir; do
-      echo "$name $(du -sk "$dir/diffdisk" 2>/dev/null | awk '{ printf "%.1f GB", $1 * 1024 / 1e9 }')"
-    done) || true
-    del="limactl delete --force" setup="$src/install/90-optional-setup-lima.sh" note=" 90 doesn't start clickhouse."
+# The Linux machines and the disk each uses. `orbctl status` never starts OrbStack, `orbctl list` may
+if command -v orbctl >/dev/null 2>&1; then
+  if orbctl status >/dev/null 2>&1; then
+    echo "==> OrbStack machines:"
+    orbctl list | sed 's/^/    /' || true
   else
-    return 0
+    echo "==> OrbStack isn't running: not listing its machines."
   fi
-  while read -r name size; do
-    case $name in dev | clickhouse) ;; *) continue ;; esac
-    names="${names:+$names or }$name${size:+ ($size)}"
-    cmds="$cmds    $del $name && $setup"$'\n'
-  done <<<"$list"
-  [ -n "$names" ] || return 0
-  case $names in *clickhouse*) loss="scratch ClickHouse data, $loss" ;; esac
-  echo "==> Recreating $names also reclaims apt leftovers, old tool versions and VM data:"
-  printf '%s' "$cmds"
-  echo "    Lost: $loss.$note"
-}
-suggest_recreate
+fi
+
+if command -v limactl >/dev/null 2>&1; then
+  # limactl's DISK column is the disk's size limit: the blocks the sparse disk holds are its use
+  echo "==> Lima machines:"
+  limactl list --json | jq -r '.name + " " + .status + " " + .dir' | while read -r name status dir; do
+    size=$(du -sk "$dir/diffdisk" 2>/dev/null | awk '{ printf "%.1f GB", $1 * 1024 / 1e9 }')
+    printf '    %-12s %-8s %s\n' "$name" "$status" "$size"
+  done || true
+fi
 
 echo "==> Done."

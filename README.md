@@ -16,22 +16,30 @@ Workstation setup for Apple Silicon macOS with **zero Homebrew**, applied by rei
 
 A minimal reinstall works without internet too: the restore needs only what macOS ships and the backup carries homedir, so restore `secrets,work,~/projects/homedir/` instead of cloning, run `01`–`03`, and continue from `04` once online.
 
-## Configs: copied, synced back with homedir-sync
+## Configs: copied, compared with homedir-sync
 
 `conf/` holds the configs for zsh, git, mise, VS Code and mc. `install/03-link-configs.sh` copies each one in [`conf/configs.txt`](conf/configs.txt) into `~` where there is none yet. From then on the file is yours: the backup saves it, the restore puts it back, and nothing you or a tool change in it (`git config --global`, VS Code, mc) reaches this public repo by itself.
 
-`homedir-sync` brings the `sync` ones together. It compares each with `conf/` and with the copy from the last sync, so it knows which side changed (yours, homedir's pulled from another Mac, or both), and asks which way to copy: yours into homedir, homedir's into `~` (yours kept as `<file>.bak.<time>`), or both merged when they merge cleanly. Then it offers to commit the changed `conf/` files on the current branch, never on `main`, and never pushes. `--status` only shows how they compare.
+`homedir-sync` shows how the `sync` ones compare. It checks each against `conf/` and against the copy from when the two last matched, so it knows which side changed (yours, homedir's pulled from another Mac, or both). `--diff` adds the differences, of every config or of one file, ignoring whitespace unless that is all that differs. Copying either way and committing `conf/` are yours to do; the next run remembers that the two match.
 
 ```sh
-# Compare the configs with homedir's, copy either way, then commit
+# See which configs differ from homedir's, then what differs in one of them
 homedir-sync
+homedir-sync --diff ~/.zshrc
 ```
 
-The `seed` ones are copied once and never synced back: `ignore-revs`, mc's hotlist and the two work templates. To start a tool over from homedir's copy, `--reset` overwrites yours, so use it carefully: your changes are gone (the old file stays as `<file>.bak.<time>`):
+The `seed` ones are copied once and never synced back: `ignore-revs`, mc's options (mc rewrites them on every exit) and hotlist, and the two work templates. To start a tool over from homedir's copy, `--reset` overwrites yours, so use it carefully: your changes are gone (the old file stays as `<file>.bak.<time>`):
 
 ```sh
 # Overwrite your mc hotlist with homedir's
 ./install/03-link-configs.sh --reset mc-hotlist
+```
+
+Nothing compares the `seed` ones, so a change in one worth giving the next Mac stays here. [`conf/review-configs.md`](conf/review-configs.md) is a prompt for Claude Code: it compares every config with yours, seed ones included, sorts the differences (for homedir, work-only, secret, this Mac only, tool churn) and makes the changes to `conf/` you pick:
+
+```sh
+# From this checkout: review every config and propose changes to conf/
+claude "Follow conf/review-configs.md"
 ```
 
 The zsh and git configs are personal. Work settings go in `~/.zprofile-work`, sourced last by `~/.zprofile` (`GOPRIVATE`, the private Go tools `04` installs, work aliases), and `~/.config/git/config-work`, included last by the git config (a work `[user]`, SSH rewrites for private orgs). homedir ships both as commented templates (tools `zsh-work` and `git-work`, so `--reset zsh,git` leaves them alone; never synced, so your work settings stay out of this repo); the restore brings yours back in its `work` group.
@@ -146,7 +154,7 @@ Nothing comes back unasked: only what the manifest lists, and of that only what 
 ```
 
 - `--only` takes groups (`secrets work config claude apps vault projects personal`), paths in the backup (`~/x`, or a `~/BACKUP_FOLDER/home/x` path pasted from a listing; a directory or a file) and Claude Code MCP servers (`mcp:NAME`). `--guided` walks every group, or the `--only` list; `vault`, `projects` and `personal` go whole. `--all` restores every group at once and `--dry-run` shows the plan for `--only` or `--all`.
-- Your configs come back over the copies homedir made in step 2. Afterwards `homedir-sync` shows which differ from homedir's and copies either way. From a Mac not set up from homedir (like the old Homebrew one), keep homedir's and take over only what's personal: its `.zprofile` loads Homebrew and its `.zshrc` has no `mise activate`.
+- Your configs come back over the copies homedir made in step 2. Afterwards `homedir-sync` shows which differ from homedir's, and `--diff` how. From a Mac not set up from homedir (like the old Homebrew one), keep homedir's (`./install/03-link-configs.sh --reset zsh,git` puts them back, yours kept as `.bak`) and take over only what's personal: its `.zprofile` loads Homebrew and its `.zshrc` has no `mise activate`.
 - A file in both places gets the backup's copy. The restore deletes nothing, never replaces a symlink (homedir's links stay) and leaves repos already in `~/projects` alone; the summary lists what it left. A directory leaves out the manifest items inside it, which come with their own group. An interrupted run resumes when you run it again.
 - `secrets` and `work` get `go-rwx`. iTerm2's preferences, the keyboard shortcuts, the Dock and the input sources go through `defaults import` and take effect when you log out in step 5. MCP servers are merged into `~/.claude.json` (the ClickHouse ones with `work`, the rest with `claude`), and after `claude` it checks that the hooks, status line and vault path its settings name exist.
 - Then apply what came back: `mise install` for tools a restored `~/.config/mise/config.toml` adds, and `orb restart docker` if the backup had `~/.orbstack/config/docker.json`. Anything the backup missed: copy it from Time Machine.
@@ -179,10 +187,12 @@ On the old Mac, from this checkout:
    mkdir -p /Volumes/<Drive>/reinstall.$(date +%F)
    ln -sfn /Volumes/<Drive>/reinstall.$(date +%F) ~/BACKUP_FOLDER
    ```
-2. Optional: bring the config changes you want to keep into homedir, so the new Mac starts from them. Commit them on a branch and get them to `main` (step 4):
+2. Optional: copy the config changes you want to keep into homedir's `conf/`, so the new Mac starts from them. Commit them on a branch and get them to `main` (step 4):
    ```sh
-   # Compare the configs with homedir's, copy either way, then commit
-   ./bin/homedir-sync
+   # See which configs differ from homedir's, and how
+   ./bin/homedir-sync --diff
+   # Or have Claude Code review all of them, seed ones included, and propose changes to conf/
+   claude "Follow conf/review-configs.md"
    ```
 3. Run the backup script. It copies everything [`conf/backup-manifest.txt`](conf/backup-manifest.txt) lists into `~/BACKUP_FOLDER/home/`, laid out like `~` (`~/projects` without `node_modules`/`.venv`/`.terraform`). It also saves to `extra/` the user-scope Claude Code MCP servers and a full copy of `~/.claude.json` (never restored whole; a project-local MCP server is only in there), writes a git report of every repo and worktree, and puts its own copy of `homedir-restore` and the manifest next to them. To back up something new, add a line to the manifest in the group the restore should bring it back with.
    ```sh
@@ -197,7 +207,7 @@ On the old Mac, from this checkout:
 
 1. **One tool per category:** OrbStack only (no Rancher Desktop, Colima, Podman, or Lima alongside it); `mise` + `uv` only (no Brew, `nvm`, `pyenv`, `rbenv`, `tfenv`); Insomnia only (no Bruno, Postman, Scalar).
 2. **Keep host `mise` lean:** heavy or rarely used infra CLIs live in the `dev` machine ([`conf/orbstack/provision-dev.sh`](conf/orbstack/provision-dev.sh)), which can be wiped and rebuilt.
-3. **Periodic cleanup:** `homedir-prune` prunes `mise`, `uv`, Go build and test caches, Docker and old Claude Code CLI binaries, and prints how to recreate the `dev` and `clickhouse` machines from scratch.
+3. **Periodic cleanup:** `homedir-prune` prunes `mise`, `uv` (skipped while something runs uv, as Claude Code's MCP servers do), Go build and test caches, Docker and old Claude Code CLI binaries, and lists the OrbStack and Lima machines with the disk each uses.
 4. **Skip vendor updater daemons:** Adobe Creative Cloud, Canon EOS Webcam Utility, JetBrains Toolbox and WiFiman, unless actively needed.
 
 ## Rolling back to Lima

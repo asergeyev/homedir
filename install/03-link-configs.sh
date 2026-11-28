@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 03-link-configs.sh — Symlink homedir scripts, Claude Code's hooks and the xbar plugin, and copy each tool config in
-# conf/configs.txt where there is none yet. From then on the config is yours: bin/homedir-sync syncs the `sync`
+# conf/configs.txt where there is none yet. From then on the config is yours: bin/homedir-sync compares the `sync`
 # ones with this checkout, and --reset TOOL overwrites yours with homedir's copy.
 set -euo pipefail
 
@@ -108,5 +108,5 @@ chmod +x "$SRC/conf/xbar/projects-latest-tags.15m.sh"
 link "$SRC/conf/xbar/projects-latest-tags.15m.sh" \
   "$HOME/Library/Application Support/xbar/plugins/projects-latest-tags.15m.sh"
 
-echo "Done. Sync your configs with this checkout: homedir-sync."
+echo "Done. Compare your configs with this checkout: homedir-sync."
 echo "Start one over (your changes are lost): $0 --reset TOOL"

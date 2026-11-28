@@ -146,7 +146,8 @@ leftover() {
   [ -n "$(find "$d" ${prune[@]+"${prune[@]}"} ! -type d -print -quit 2>/dev/null)" ]
 }
 
-# backup_item <path>: copy ~/<path> to <backup>/home/<path>
+# backup_item <path>: copy ~/<path> to <backup>/home/<path>. rsync -rlptgo is -a without -D: sockets, FIFOs and
+# devices are skipped with a note, as a copy of one is no use and copying a socket fails
 backup_item() {
   local path=$1 src="$HOME/$1" dst="$REAL_DEST/home/$1"
   # mcp:<glob> items split the MCP servers saved to extra/ below; there is no file to copy
@@ -159,18 +160,18 @@ backup_item() {
       case "$PREFS" in
         # Read through cfprefsd: the plist on disk can lag behind the running app
         defaults) defaults export "$(basename "$path" .plist)" "$dst" || FAILED+=("~/$path (defaults export)") ;;
-        file) rsync -a "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)") ;;
+        file) rsync -rlptgo "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)") ;;
         *) FAILED+=("~/$path (not exported: dscl can't tell whether ~ is the login home)") ;;
       esac
       ;;
     */)
       mkdir -p "$dst"
       exclude_args "$path"
-      rsync -a --delete ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
+      rsync -rlptgo --delete ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
       ;;
     *)
       mkdir -p "$(dirname "$dst")"
-      rsync -a "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
+      rsync -rlptgo "$src" "$dst" || FAILED+=("~/$path (rsync exit $?)")
       ;;
   esac
 }

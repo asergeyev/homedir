@@ -1,67 +1,77 @@
 #!/usr/bin/env bash
-# homedir-sync — Sync the tool configs homedir copies into ~ (the `sync` lines of conf/configs.txt) with this
-# checkout. The copy each had at its last sync (~/.local/state/homedir/base/) shows which side changed: yours, homedir's
-# (pulled from another Mac) or both. For each, it asks which way to copy, then offers to commit the changed conf/ files
-# on the current branch. It never commits on main and never pushes.
+# homedir-sync — Show how the tool configs homedir copies into ~ (the `sync` lines of conf/configs.txt) compare with
+# this checkout. The copy each had when the two last matched (~/.local/state/homedir/base/) shows which side changed:
+# yours, homedir's (pulled from another Mac) or both. Copying either way and committing conf/ are yours to do.
 set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--status]
-  --status  only show how each config compares; change nothing
-For each changed config: [h] copy yours into homedir, [l] copy homedir's here (yours kept as <file>.bak.<time>),
-[m] merge both (offered when both changed and they merge cleanly), [d] diff, [s] skip, [q] quit.
+Usage: $(basename "$0") [--status | --diff [FILE]]
+  (none), --status  show how each config compares with homedir's
+  --diff [FILE]     the same, with the differences of every config or of FILE (~/.zshrc or conf/zsh/.zshrc);
+                    whitespace is ignored unless it is all that differs
+Copy either way yourself; the next run then remembers that the two match.
+The seed configs aren't compared: conf/review-configs.md has Claude Code review every config.
 EOF
 }
 
-STATUS=0
+DIFF=0 ONLY=
 while [ $# -gt 0 ]; do
   case "$1" in
-    --status) STATUS=1; shift ;;
+    --status) shift ;;
+    --diff)
+      DIFF=1
+      shift
+      case "${1:-}" in '' | -*) ;; *) ONLY=$1; shift ;; esac
+      ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
 done
-if [ "$STATUS" = 0 ] && [ ! -t 0 ]; then
-  echo "Not a terminal, so only the status (run it in a terminal to sync):" >&2
-  STATUS=1
-fi
 
 SRC="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 BASE="$HOME/.local/state/homedir/base"
-stamp=$(date +%Y%m%d%H%M%S)
-tmp=$(mktemp -t homedir-sync)
-trap 'rm -f "$tmp"' EXIT
-
-# The `sync` configs, read up front: the prompts below read stdin
-TOOLS=() RELS=() DSTS=()
-while read -r mode tool def dst || [ -n "${mode:-}" ]; do
-  [ "$mode" = sync ] || continue
-  TOOLS+=("$tool") RELS+=("$def") DSTS+=("$dst")
-done <"$SRC/conf/configs.txt"
+# FILE as configs.txt has it: a path under ~ or in this checkout
+case "$ONLY" in
+  "$SRC"/*) ONLY=${ONLY#"$SRC"/} ;;
+  "$HOME"/*) ONLY=${ONLY#"$HOME"/} ;;
+  '~/'*) ONLY=${ONLY#'~/'} ;;
+  ./*) ONLY=${ONLY#./} ;;
+esac
 
 # set_base FILE: remember FILE as the last-synced copy of the current config
 set_base() {
   (umask 077 && mkdir -p "$(dirname "$base")" && cp "$1" "$base")
 }
 
-# show_diff: the differences of the current config, homedir's side first
-show_diff() {
-  {
-    if [ "$state" = "changed in both" ]; then
-      echo "### Yours since the last sync"
-      diff -u --label "last sync" --label "yours: ~/$dst" "$base" "$mine" || true
-      echo "### homedir's since the last sync"
-      diff -u --label "last sync" --label "homedir: $rel" "$base" "$def" || true
-    else
-      diff -u --label "homedir: $rel" --label "yours: ~/$dst" "$def" "$mine" || true
-    fi
-  } | less -FRX || true
+# udiff OLD NEW OLD_LABEL NEW_LABEL: diff -u ignoring whitespace, or in full when whitespace is all that differs
+udiff() {
+  if diff -q -w "$1" "$2" >/dev/null 2>&1; then
+    echo "### Only whitespace differs"
+    diff -u --label "$3" --label "$4" "$1" "$2" || true
+  else
+    diff -u -w --label "$3" --label "$4" "$1" "$2" || true
+  fi
 }
 
-CHANGED=() CHANGED_TOOLS=
-for i in "${!RELS[@]}"; do
-  tool=${TOOLS[$i]} rel=${RELS[$i]} dst=${DSTS[$i]}
+# show_diff: the differences of the current config, homedir's side first
+show_diff() {
+  if [ "$state" = "changed in both" ]; then
+    echo "### Yours since the last sync"
+    udiff "$base" "$mine" "last sync" "yours: ~/$dst"
+    echo "### homedir's since the last sync"
+    udiff "$base" "$def" "last sync" "homedir: $rel"
+  else
+    udiff "$def" "$mine" "homedir: $rel" "yours: ~/$dst"
+  fi
+  echo
+}
+
+FOUND=0 DIFFERS=0
+while read -r mode _ rel dst || [ -n "${mode:-}" ]; do
+  [ "$mode" = sync ] || continue
+  if [ -n "$ONLY" ] && [ "$ONLY" != "$dst" ] && [ "$ONLY" != "$rel" ]; then continue; fi
+  FOUND=1
   def="$SRC/$rel" mine="$HOME/$dst" base="$BASE/$dst"
   if [ ! -f "$def" ]; then
     state="not in homedir: skipped"
@@ -69,7 +79,7 @@ for i in "${!RELS[@]}"; do
     state="not here"
   elif cmp -s "$mine" "$def"; then
     state=same
-    if [ "$STATUS" = 0 ] && ! cmp -s "$mine" "$base" 2>/dev/null; then set_base "$mine"; fi
+    if ! cmp -s "$mine" "$base" 2>/dev/null; then set_base "$mine"; fi
   elif [ ! -f "$base" ]; then
     state="differs (no earlier sync to tell which side changed)"
   elif cmp -s "$def" "$base"; then
@@ -80,80 +90,19 @@ for i in "${!RELS[@]}"; do
     state="changed in both"
   fi
   printf '    %-56s %s\n' "~/$dst" "$state"
-  case "$state" in same | not\ in\ homedir*) continue ;; esac
-  [ "$STATUS" = 0 ] || continue
-
-  if [ "$state" = "not here" ]; then
-    keys=lsq prompt="[l] copy homedir's here  [s]kip  [q]uit"
-  else
-    keys=hldsq prompt="[h] yours into homedir  [l] homedir's here  [d]iff  [s]kip  [q]uit"
-    if [ "$state" = "changed in both" ] && git merge-file -p "$mine" "$base" "$def" >"$tmp" 2>/dev/null; then
-      keys=hlmdsq prompt="[h] yours into homedir  [l] homedir's here  [m]erge both  [d]iff  [s]kip  [q]uit"
-    fi
-  fi
-  while :; do
-    read -r -n 1 -p "      $prompt " REPLY || REPLY=q
-    echo
-    case "$REPLY" in
-      [$keys]) ;;
-      *) continue ;;
-    esac
-    [ "$REPLY" = d ] || break
-    show_diff
-  done
-  case "$REPLY" in
-    h)
-      cp "$mine" "$def"
-      set_base "$mine"
-      echo "      copied into homedir"
-      ;;
-    l)
-      if [ -e "$mine" ]; then
-        cp -p "$mine" "$mine.bak.$stamp"
-        echo "      kept yours as ~/$dst.bak.$stamp"
-      fi
-      mkdir -p "$(dirname "$mine")"
-      cp "$def" "$mine"
-      set_base "$def"
-      echo "      copied homedir's here"
-      ;;
-    m)
-      cp -p "$mine" "$mine.bak.$stamp"
-      cp "$tmp" "$mine"
-      cp "$tmp" "$def"
-      set_base "$tmp"
-      echo "      merged into both (yours kept as ~/$dst.bak.$stamp)"
-      ;;
-    q) break ;;
-  esac
-  case "$REPLY" in
-    h | m)
-      CHANGED+=("$rel")
-      case " $CHANGED_TOOLS " in *" $tool "*) ;; *) CHANGED_TOOLS="${CHANGED_TOOLS:+$CHANGED_TOOLS }$tool" ;; esac
+  case "$state" in
+    differs* | changed*)
+      DIFFERS=1
+      if [ "$DIFF" = 1 ]; then show_diff; fi
       ;;
   esac
-done
+done <"$SRC/conf/configs.txt"
 
-[ "$STATUS" = 0 ] || exit 0
-if [ ${#CHANGED[@]} = 0 ]; then
-  echo "==> No homedir file changed."
-  exit 0
+if [ -n "$ONLY" ] && [ "$FOUND" = 0 ]; then
+  echo "Not a sync config: $ONLY (the sync lines of $SRC/conf/configs.txt list them)" >&2
+  exit 2
 fi
-echo "==> Changed in homedir ($SRC):"
-git -C "$SRC" --no-pager diff --stat -- "${CHANGED[@]}"
-branch=$(git -C "$SRC" symbolic-ref --short -q HEAD || true)
-case "$branch" in
-  main | master | '')
-    echo "On ${branch:-a detached HEAD}: switch to a branch (git -C $SRC switch -c <name>), then commit them there."
-    exit 0
-    ;;
-esac
-read -r -p "Commit them on $branch? [y/N] " ans || ans=
-case "$ans" in
-  [yY]*)
-    git -C "$SRC" add -- "${CHANGED[@]}"
-    git -C "$SRC" commit -q -m "Update configs: $CHANGED_TOOLS" -- "${CHANGED[@]}"
-    echo "Committed on $branch; push it when ready (git -C $SRC push)."
-    ;;
-  *) echo "Not committed; review with git -C $SRC diff." ;;
-esac
+if [ "$DIFFERS" = 1 ]; then
+  if [ "$DIFF" = 0 ]; then echo "The differences: $(basename "$0") --diff [FILE]"; fi
+  echo "Copy either way yourself, and commit conf/ on a branch; the next run remembers that the two match."
+fi
