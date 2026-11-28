@@ -17,6 +17,7 @@ command -v go >/dev/null 2>&1 && go clean -cache -testcache || true
 
 echo "==> Pruning old Claude Code binaries (keeping 2 newest)..."
 if [ -d "$HOME/.local/share/claude/versions" ]; then
+  # shellcheck disable=SC2012 # version names, newest first by time
   ls -t "$HOME/.local/share/claude/versions" | tail -n +3 | while IFS= read -r old; do
     rm -f "$HOME/.local/share/claude/versions/$old"
   done

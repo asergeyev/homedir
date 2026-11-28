@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # funcs.sh — Helpers the app installers (install/05, 06, 07 and 09) source: vendor downloads, Mac App Store installs
 # through mas, a y/N question per optional app, and --all for the apps marked off. Not run on its own.
 

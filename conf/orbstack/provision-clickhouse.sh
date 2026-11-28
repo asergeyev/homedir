@@ -7,7 +7,7 @@
 set -euo pipefail
 
 CH_VERSION="${CH_VERSION:-latest}"
-PKGS="clickhouse-common-static clickhouse-server clickhouse-client"
+PKGS=(clickhouse-common-static clickhouse-server clickhouse-client)
 
 # sudo drops an exported DEBIAN_FRONTEND, and apt runs maintainer scripts on a pty, so without it the
 # clickhouse-server postinst waits forever for a default-user password
@@ -25,13 +25,13 @@ if [ "$CH_VERSION" = latest ] || [ "$before" != "installed $CH_VERSION" ]; then
   echo "deb [signed-by=/usr/share/keyrings/clickhouse-keyring.gpg arch=$(dpkg --print-architecture)]" \
     "https://packages.clickhouse.com/deb stable main" | sudo tee /etc/apt/sources.list.d/clickhouse.list >/dev/null
   apt_get update
-  sudo apt-mark unhold $PKGS || true
+  sudo apt-mark unhold "${PKGS[@]}" || true
   if [ "$CH_VERSION" = latest ]; then
-    apt_get install -y $PKGS </dev/null
+    apt_get install -y "${PKGS[@]}" </dev/null
   else
-    apt_get install -y --allow-downgrades $(printf "%s=$CH_VERSION " $PKGS) </dev/null
+    apt_get install -y --allow-downgrades "${PKGS[@]/%/=$CH_VERSION}" </dev/null
   fi
-  sudo apt-mark hold $PKGS
+  sudo apt-mark hold "${PKGS[@]}"
   # The running server keeps its old binary until restarted
   [ "$(installed)" = "$before" ] || sudo systemctl try-restart clickhouse-server
 fi

@@ -12,6 +12,8 @@ gh = "latest"
 glab = "latest"
 jq = "latest"
 ripgrep = "latest"
+# For homedir's own test/check.sh
+shellcheck = "latest"
 yq = "latest"
 "github:oasdiff/oasdiff" = { version = "latest", asset_pattern = "oasdiff_*_darwin_all.tar.gz" }
 "conda:mc" = "latest"
