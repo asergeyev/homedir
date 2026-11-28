@@ -2,6 +2,8 @@
 # make-fixture.sh — Build a test backup that holds nothing real: a fake old home with a dummy file for every item
 # conf/backup-manifest.txt lists (plists, MCP servers and the paths the manifest skips included), backed up by
 # bin/homedir-backup, and a new home holding only a fresh homedir clone, for trying bin/homedir-restore on.
+# Not built yet, so add them by hand to test them: a non-ASCII name and a symlink inside a backed-up directory, and
+# symlinks in the new home whose names hold [ * ? or \ (the restore's rsync -8 and exclude_literal).
 set -euo pipefail
 
 usage() {

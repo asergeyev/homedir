@@ -48,7 +48,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ -n "$ONLY" ] && [ "$ALL" = 1 ]; then die "--only and --all don't mix: --all is every group"; fi
-if [ "$GUIDED" = 1 ] && [ "$DRY_RUN" = 1 ]; then die "--guided and --dry-run don't mix: --dry-run alone shows the plan"; fi
+if [ "$GUIDED" = 1 ] && [ "$DRY_RUN" = 1 ]; then
+  die "--guided and --dry-run don't mix: --dry-run alone shows the plan"
+fi
 if [ "$GUIDED" = 1 ] && [ ! -t 0 ]; then die "--guided asks questions, so it needs a terminal"; fi
 # PLAN=1: show what would happen, change nothing
 PLAN=0
@@ -205,7 +207,8 @@ if [ -n "$ONLY" ]; then
       mcp:*) SEL_MCP+=("${t#mcp:}") ;;
       *[/~]*|'$HOME'*) select_path "$t" ;;
       *)
-        in_list "$t" "$GROUP_LIST" || die "Unknown group: $t (the manifest has: $GROUP_LIST; a path starts with ~/ or /)"
+        in_list "$t" "$GROUP_LIST" \
+          || die "Unknown group: $t (the manifest has: $GROUP_LIST; a path starts with ~/ or /)"
         SEL_GROUPS="$SEL_GROUPS $t"
         ;;
     esac
@@ -250,9 +253,25 @@ exclude_args() {
   done
 }
 
+# exclude_literal PATH: add to EXARGS an rsync exclude that matches PATH only. rsync reads a pattern holding * ? or [
+# as a wildcard one, where those and \ need a \ in front (foo[1] alone would match foo1)
+exclude_literal() {
+  local s=$1 b='\'
+  case "$s" in
+    *[*?[]*)
+      s=${s//"$b"/$b$b}
+      s=${s//\[/$b[}
+      s=${s//\*/$b*}
+      s=${s//\?/$b?}
+      ;;
+  esac
+  EXARGS+=(--exclude "$s")
+}
+
 # protected_repos: print the repos (projects/<path>) to leave alone: those in ~/projects now, or, while a whole
-# projects/ copy is unfinished, those there before it started. copy_dir freezes that list in $REPO_MARKER and drops
-# it when the copy completes, so a re-run after an interrupted copy resumes the half-copied repos.
+# projects/ copy is unfinished, those there before it started. copy_dir freezes that list in $REPO_MARKER, dropped
+# once the copy completes or a later run finds nothing left to copy, so a re-run after an interrupted copy resumes
+# the half-copied repos.
 protected_repos() {
   local p
   if [ -f "$REPO_MARKER" ]; then
@@ -276,7 +295,7 @@ protect_args() {
       while IFS= read -r r; do
         case "$r/" in
           "$rel"?*)
-            EXARGS+=(--exclude "/${r#"$rel"}/")
+            exclude_literal "/${r#"$rel"}/"
             KEPT+=("~/$r/")
             repos+=("$r/")
             ;;
@@ -290,7 +309,7 @@ protect_args() {
     for r in ${repos[@]+"${repos[@]}"}; do
       case "$p" in "$r"*) continue 2 ;; esac
     done
-    EXARGS+=(--exclude "/${p#"$rel"}")
+    exclude_literal "/${p#"$rel"}"
     KEPT+=("~/$p")
   done < <(find "$d" -type l 2>/dev/null)
 }
@@ -308,7 +327,7 @@ line() {
   printf '    %-52s %s\n' "$1" "$2"
 }
 
-# ask KEYS PROMPT: read an answer from the terminal into REPLY until it is one of the letters in KEYS (q at end of input)
+# ask KEYS PROMPT: read the terminal into REPLY until it is one of the letters in KEYS (q at end of input)
 ask() {
   while :; do
     printf '      %s: ' "$2" >/dev/tty
@@ -339,11 +358,12 @@ secure() {
   chmod -R go-rwx "$p" || FAILED+=("$p (chmod go-rwx)")
 }
 
-# copy_file REL INDEX [DST]: copy the backup's file to ~/REL (or DST); fails after noting it in FAILED
+# copy_file REL INDEX [DST]: copy the backup's file to ~/REL (or DST); fails after noting it in FAILED. rsync -rlptgo,
+# here and below, is -a without -D: sockets, FIFOs and devices (which an older backup may hold) are skipped
 copy_file() {
   local dst=${3:-$HOME/$1} rc=0
   mkdir -p "$(dirname "$dst")"
-  rsync -a "$FROM/home/$1" "$dst" || rc=$?
+  rsync -rlptgo "$FROM/home/$1" "$dst" || rc=$?
   if [ "$rc" = 0 ]; then
     secure "$2"
     # A copy kept beside the item is outside it
@@ -361,9 +381,9 @@ copy_dir() {
   if [ "$1" = projects/ ] && [ ! -f "$REPO_MARKER" ]; then
     repos=$(protected_repos)
     mkdir -p "$(dirname "$REPO_MARKER")"
-    printf '%s\n' "$repos" >"$REPO_MARKER"
+    { [ -z "$repos" ] || printf '%s\n' "$repos"; } >"$REPO_MARKER"
   fi
-  rsync -a ${3:+"$3"} ${EXARGS[@]+"${EXARGS[@]}"} "$FROM/home/$1" "$HOME/$1" || rc=$?
+  rsync -rlptgo ${3:+"$3"} ${EXARGS[@]+"${EXARGS[@]}"} "$FROM/home/$1" "$HOME/$1" || rc=$?
   if [ "$rc" = 0 ]; then
     secure "$2"
     if [ "$1" = projects/ ]; then rm -f "$REPO_MARKER"; fi
@@ -373,11 +393,14 @@ copy_dir() {
   return 1
 }
 
-# file_unit REL INDEX: one file
+# file_unit REL INDEX: one file or symlink
 file_unit() {
   local rel=$1 idx=$2 src="$FROM/home/$1" dst="$HOME/$1" state
   if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then
     state=new
+  elif [ -L "$src" ]; then
+    # cmp would compare what the links point to
+    if [ -L "$dst" ] && [ "$(readlink "$src")" = "$(readlink "$dst")" ]; then state=same; else state=differs; fi
   elif cmp -s "$src" "$dst"; then
     state=same
   else
@@ -396,7 +419,11 @@ file_unit() {
         ask rsdkq "[r]estore [s]kip [d]iff [k]eep it beside yours as .from-backup [q]uit"
       fi
       [ "$REPLY" = d ] || break
-      { diff -u "$( [ -e "$dst" ] && echo "$dst" || echo /dev/null)" "$src" || true; } | page
+      if [ -L "$src" ]; then
+        echo "The backup's ~/$rel is a symlink to $(readlink "$src")" | page || true
+      else
+        { diff -u "$( [ -e "$dst" ] && echo "$dst" || echo /dev/null)" "$src" || true; } | page
+      fi
     done
     case "$REPLY" in
       r) if copy_file "$rel" "$idx"; then line "" restored; fi ;;
@@ -452,13 +479,16 @@ dir_unit() {
   if in_list "${ITEM_GROUPS[$idx]}" "$BULK"; then ck=; fi
   exclude_args "$rel"
   protect_args "$rel"
-  if ! out=$(rsync -a -n -i ${ck:+"$ck"} ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst"); then
+  # -8: names as they are, not with non-ASCII bytes escaped (— as \#342\#200\#224)
+  if ! out=$(rsync -rlptgo -n -i -8 ${ck:+"$ck"} ${EXARGS[@]+"${EXARGS[@]}"} "$src" "$dst"); then
     line "~/$rel" "failed to compare"
     FAILED+=("~/$rel (rsync dry run)")
     return 0
   fi
+  # A line per file or symlink to copy: ">f+++++++ name" or "cL+++++++ name -> target", + marking a new one
   changes=$(printf '%s\n' "$out" | grep -E '^(>f|cL)' || true)
-  read -r new changed <<<"$(printf '%s\n' "$changes" | awk 'NF { if (index($1, "+")) n++; else c++ } END { print n+0, c+0 }')"
+  read -r new changed <<<"$(printf '%s\n' "$changes" \
+    | awk 'NF { if (index($1, "+")) n++; else c++ } END { print n+0, c+0 }')"
   if [ ! -d "$dst" ]; then
     new=$((new + changed)) changed=0
   fi
@@ -472,10 +502,11 @@ dir_unit() {
   else
     state="$state files"
   fi
+  # Nothing left to copy, so an interrupted projects/ copy is complete
+  if [ "$PLAN" = 0 ] && [ "$state" = same ] && [ "$rel" = projects/ ]; then rm -f "$REPO_MARKER"; fi
   if [ "$GUIDED" = 0 ]; then
     if [ "$PLAN" = 1 ] || [ "$state" = same ]; then
       line "~/$rel" "$state"
-      if [ "$PLAN" = 0 ] && [ "$rel" = projects/ ]; then rm -f "$REPO_MARKER"; fi
     else
       # Before the copy: a bulk one takes a while
       line "~/$rel" "restoring $state"
@@ -494,15 +525,17 @@ dir_unit() {
         ask aslq "[a]ll [s]kip [l]ist [q]uit"
       fi
       [ "$REPLY" = l ] || break
-      printf '%s\n' "$changes" | sed 's/^[^ ]* //' | page
+      # Quitting the pager early stops sed with SIGPIPE, which set -e and pipefail would make fatal
+      printf '%s\n' "$changes" | sed 's/^[^ ]* //' | page || true
     done
     case "$REPLY" in
       a) if copy_dir "$rel" "$idx" "$ck"; then line "" restored; fi ;;
       f)
         while IFS= read -r p; do
           [ "$QUIT" = 0 ] || break
+          case "$p" in cL*) p=${p% -> *} ;; esac
           file_unit "$rel${p#* }" "$idx"
-        done < <(printf '%s\n' "$changes" | grep '^>f')
+        done <<<"$changes"
         ;;
       q) QUIT=1 ;;
     esac

@@ -1,15 +1,14 @@
 # configs.txt — tool configs install/03-link-configs.sh copies into ~ where there is none yet:
 # "<mode> <tool> <file here> <path under ~>". From then on the file is yours: the backup saves it and the restore puts
 # it back. --reset TOOL overwrites yours with the file here (the old one kept as <file>.bak.<time>).
-#   sync  bin/homedir-sync copies changes either way between ~ and this checkout
-#   seed  copied once, never synced back
+#   sync  bin/homedir-sync compares yours with the file here, for you to copy either way
+#   seed  copied once, never synced back; conf/review-configs.md has Claude Code compare these too
 sync zsh conf/zsh/.zprofile .zprofile
 sync zsh conf/zsh/.zshrc .zshrc
 sync git conf/git/config .config/git/config
 sync git conf/git/ignore .config/git/ignore
 sync mise conf/mise/config.toml .config/mise/config.toml
 sync vscode conf/vscode/settings.json Library/Application Support/Code/User/settings.json
-sync mc conf/mc/ini .config/mc/ini
 sync mc conf/mc/panels.ini .config/mc/panels.ini
 # Commits for `git blame` to skip; starts empty
 seed ignore-revs conf/git/ignore-revs .config/git/ignore-revs
@@ -17,5 +16,7 @@ seed ignore-revs conf/git/ignore-revs .config/git/ignore-revs
 # `--reset zsh,git` leaves them alone
 seed zsh-work conf/zsh/.zprofile-work .zprofile-work
 seed git-work conf/git/config-work .config/git/config-work
+# mc's options: mc rewrites them whenever it exits (auto_save_setup), so syncing would only churn
+seed mc-ini conf/mc/ini .config/mc/ini
 # mc's directory hotlist, which mc edits (Ctrl-\)
 seed mc-hotlist conf/mc/hotlist .config/mc/hotlist
